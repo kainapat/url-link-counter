@@ -1,0 +1,75 @@
+@import url('https://cdn.tailwindcss.com');
+
+/* Custom styles */
+:root {
+    --primary-blue: #3b82f6;
+    --primary-green: #22c55e;
+    --primary-purple: #a855f7;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Dark mode styles */
+.dark {
+    background-color: #111827;
+    color: #f3f4f6;
+}
+
+.dark .container {
+    background-color: #1f2937;
+}
+
+/* Light mode styles */
+.light {
+    background-color: #ffffff;
+    color: #111827;
+}
+
+.light .container {
+    background-color: #ffffff;
+}
+
+/* Button styles */
+.btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.btn-success {
+    background-color: var(--primary-green);
+    color: white;
+}
+
+.btn-purple {
+    background-color: var(--primary-purple);
+    color: white;
+}
+
+/* Input styles */
+.url-input {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    resize: none;
+    background-color: #374151;
+    color: #f3f4f6;
+}
+
+.url-input:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: var(--primary-blue);
+} 
