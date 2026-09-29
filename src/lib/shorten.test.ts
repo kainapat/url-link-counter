@@ -71,7 +71,7 @@ describe('shortenBatch', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
-        if (url.includes('clck.ru')) return Promise.reject(new TypeError('Failed to fetch'))
+        if (url.includes('da.gd')) return Promise.reject(new TypeError('Failed to fetch'))
         return Promise.resolve(new Response('https://is.gd/abc123', { status: 200 }))
       }),
     )

@@ -22,14 +22,14 @@ async function readShortUrl(res: Response, provider: string): Promise<string> {
 
 // Ordered by browser reachability. TinyURL/is.gd omit CORS headers for
 // third-party origins, so direct browser calls to them always fail with
-// "Failed to fetch" — clck.ru sends `Access-Control-Allow-Origin: *`.
+// "Failed to fetch" — da.gd sends `Access-Control-Allow-Origin: *`.
 const PROVIDERS: Provider[] = [
   {
-    name: 'clck.ru',
+    name: 'da.gd',
     request: async (longUrl, signal) =>
       readShortUrl(
-        await fetch(`https://clck.ru/--?url=${encodeURIComponent(longUrl)}`, { signal }),
-        'clck.ru',
+        await fetch(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`, { signal }),
+        'da.gd',
       ),
   },
   {
