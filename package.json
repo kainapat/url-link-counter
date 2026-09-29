@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.23",
     "@radix-ui/react-tooltip": "^1.2.16",
     "lucide-react": "^0.468.0",
     "motion": "^12.43.0",

@@ -17,6 +17,7 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { countDomains, parseUrls } from './lib/urls'
 import { shortenBatch, shortenOne, type ShortenEntry } from './lib/shorten'
+import { OpenLinksControl } from './components/OpenLinksControl'
 
 function StatCard({ label, value, index = 0 }: { label: string; value: number; index?: number }) {
   return (
@@ -84,7 +85,8 @@ export default function App() {
   const [shortened, setShortened] = useState<Record<string, ShortenEntry>>({})
   const [shortenActive, setShortenActive] = useState(false)
   const [shortenProgress, setShortenProgress] = useState({ done: 0, total: 0 })
-  const shortenRun = useRef(0)
+  const batchRun = useRef(0)
+  const singleRuns = useRef<Record<string, number>>({})
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
 
   const urls = useMemo(() => parseUrls(input), [input])
@@ -185,14 +187,14 @@ export default function App() {
   )
 
   const shortenSingle = async (longUrl: string) => {
-    const run = ++shortenRun.current
+    const run = (singleRuns.current[longUrl] = (singleRuns.current[longUrl] || 0) + 1)
     setShortened((prev) => ({ ...prev, [longUrl]: { status: 'shortening' } }))
     try {
       const shortUrl = await shortenOne(longUrl)
-      if (shortenRun.current !== run) return
+      if (singleRuns.current[longUrl] !== run) return
       setShortened((prev) => ({ ...prev, [longUrl]: { status: 'done', shortUrl } }))
     } catch (err) {
-      if (shortenRun.current !== run) return
+      if (singleRuns.current[longUrl] !== run) return
       setShortened((prev) => ({
         ...prev,
         [longUrl]: { status: 'failed', error: err instanceof Error ? err.message : 'Failed' },
@@ -202,21 +204,21 @@ export default function App() {
 
   const shortenAllUrls = async () => {
     if (shortenActive || uniqueValid.length === 0) return
-    const run = ++shortenRun.current
+    const run = ++batchRun.current
     const targets = uniqueValid.filter((u) => shortened[u]?.status !== 'done')
     setShortenActive(true)
     setShortenProgress({ done: 0, total: targets.length })
     await shortenBatch(
       targets,
       (index, entry, done, total) => {
-        if (shortenRun.current !== run) return
+        if (batchRun.current !== run) return
         const url = targets[index]
         setShortened((prev) => ({ ...prev, [url]: entry }))
         setShortenProgress({ done, total })
       },
-      { isCancelled: () => shortenRun.current !== run },
+      { isCancelled: () => batchRun.current !== run },
     )
-    if (shortenRun.current === run) setShortenActive(false)
+    if (batchRun.current === run) setShortenActive(false)
   }
 
   return (
@@ -472,6 +474,16 @@ export default function App() {
               </button>
             )}
           </div>
+          {urls.length > 0 && (
+            <div className="border-b border-zinc-200 p-4 dark:border-zinc-800 sm:px-6">
+              <OpenLinksControl
+                allUrls={urls}
+                visibleUrls={visibleUrls}
+                query={query}
+                filter={filter}
+              />
+            </div>
+          )}
           <p aria-live="polite" className="sr-only">
             {shortenActive
               ? `Shortening URLs, ${shortenProgress.done} of ${shortenProgress.total} done.`

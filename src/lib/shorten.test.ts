@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { shortenBatch } from './shorten'
+import { shortenBatch, shortenOne } from './shorten'
 
 function deferred<T>() {
   let resolve!: (v: T) => void
@@ -63,7 +63,6 @@ describe('shortenBatch', () => {
 
   it('shortenOne rejects non-url responses', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('Error: not found', { status: 200 })))
-    const { shortenOne } = await import('./shorten')
     await expect(shortenOne('https://example.com')).rejects.toThrow(/All shorteners unreachable/)
   })
 
@@ -75,7 +74,79 @@ describe('shortenBatch', () => {
         return Promise.resolve(new Response('https://is.gd/abc123', { status: 200 }))
       }),
     )
-    const { shortenOne } = await import('./shorten')
     await expect(shortenOne('https://example.com')).resolves.toBe('https://is.gd/abc123')
+  })
+
+  it('stops processing when isCancelled returns true', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => new Response(`https://tinyurl.com/${encodeURIComponent(url)}`, { status: 200 })),
+    )
+    let cancelled = false
+    const updates: string[] = []
+    const urls = ['https://a.com', 'https://b.com', 'https://c.com', 'https://d.com']
+    await shortenBatch(
+      urls,
+      (index, entry) => {
+        updates.push(`${index}:${entry.status}`)
+        if (entry.status === 'done') {
+          cancelled = true
+        }
+      },
+      { concurrency: 1, isCancelled: () => cancelled },
+    )
+    // Only the first URL should finish done; remaining URLs are not processed
+    const doneUpdates = updates.filter((u) => u.endsWith(':done'))
+    expect(doneUpdates.length).toBeLessThan(urls.length)
+  })
+
+  it('isolates batchRun from singleRuns so single shortens do not cancel batch', async () => {
+    const gateBatch = deferred<Response>()
+    const gateSingle = deferred<Response>()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('single')) return gateSingle.promise
+        return gateBatch.promise
+      }),
+    )
+
+    let batchRun = 1
+    const singleRuns: Record<string, number> = {}
+    let batchDone = false
+    let singleDone = false
+
+    // Start batch with token = 1
+    const batchPromise = shortenBatch(
+      ['https://example.com/batch1'],
+      (_idx, entry) => {
+        if (entry.status === 'done') batchDone = true
+      },
+      { isCancelled: () => batchRun !== 1 },
+    )
+
+    // Now start a single shorten on another URL, incrementing its own token
+    const singleUrl = 'https://example.com/single1'
+    const singleToken = (singleRuns[singleUrl] = (singleRuns[singleUrl] || 0) + 1)
+    const singlePromise = (async () => {
+      const res = await shortenOne(singleUrl)
+      if (singleRuns[singleUrl] === singleToken) {
+        singleDone = true
+      }
+      return res
+    })()
+
+    // batchRun is still 1, single token is 1 in its own map
+    expect(batchRun).toBe(1)
+    expect(singleRuns[singleUrl]).toBe(1)
+
+    // Resolve both
+    gateSingle.resolve(new Response('https://tinyurl.com/s1', { status: 200 }))
+    gateBatch.resolve(new Response('https://tinyurl.com/b1', { status: 200 }))
+
+    await Promise.all([batchPromise, singlePromise])
+    expect(batchDone).toBe(true)
+    expect(singleDone).toBe(true)
   })
 })
