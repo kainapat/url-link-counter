@@ -77,3 +77,11 @@ _Avoid_: PersistentHistory, OpenLog
 **Blocked Retry Queue**:
 The subset of URLs within an opened batch that failed to launch due to browser popup restrictions, held for immediate re-attempt.
 _Avoid_: FailedList, RetryPool
+
+**Batch Resolution Status**:
+The completion state of an internal batch, marked as `complete` only when all requested URLs have been successfully opened, and `partial` while blocked URLs remain pending retry.
+_Avoid_: BatchSuccess, BatchFinished
+
+**Batch In-Place Update**:
+The operation that updates an existing batch history entry following a retry attempt rather than appending a redundant record.
+_Avoid_: HistoryPatch, RetryLog

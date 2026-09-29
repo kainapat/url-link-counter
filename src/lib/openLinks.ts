@@ -27,6 +27,7 @@ export type OpenBatchResult = {
   openedUrls: string[]
   blockedUrls: string[]
 }
+export type BatchHistoryStatus = 'complete' | 'partial'
 
 export type BatchHistoryItem = {
   id: string
@@ -38,6 +39,7 @@ export type BatchHistoryItem = {
   blocked: number
   openedUrls: string[]
   blockedUrls: string[]
+  status: BatchHistoryStatus
   timestamp: number
 }
 
@@ -114,12 +116,42 @@ export function parseCustomBatchSize(value: string): number | null {
 export type UrlOpener = (url: string) => Window | null | undefined
 
 /**
+ * Default browser window opener with reliable popup blocker detection.
+ *
+ * Web API Limitation Note:
+ * Passing 'noopener' directly in `window.open(url, '_blank', 'noopener')` causes
+ * Chromium browsers to disown the window reference and return null even when opened
+ * successfully. This pattern:
+ * 1. Opens an initial blank window synchronously to capture the genuine Window handle.
+ * 2. Inspects whether the browser blocked the window (null or synchronously closed).
+ * 3. Sets `newWindow.opener = null` to protect against reverse-tabnabbing exploits.
+ * 4. Navigates to the destination URL via `newWindow.location.replace(url)`.
+ */
+export function defaultBrowserOpener(url: string): Window | null {
+  try {
+    const newWindow = window.open('', '_blank')
+    if (!newWindow || newWindow.closed) {
+      return null
+    }
+    try {
+      newWindow.opener = null
+    } catch {
+      // Silently ignore if browser restricts opener mutation
+    }
+    newWindow.location.replace(url)
+    return newWindow
+  } catch {
+    return null
+  }
+}
+
+/**
  * Opens a batch of URLs synchronously to preserve user-gesture activation context.
  * Checks the opener result to detect browser popup blockers.
  */
 export function openUrlBatch(
   urls: string[],
-  opener: UrlOpener = (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+  opener: UrlOpener = defaultBrowserOpener,
 ): OpenBatchResult {
   let opened = 0
   let blocked = 0
@@ -167,6 +199,54 @@ export function createBatchHistoryItem(
     blocked: result.blocked,
     openedUrls: result.openedUrls,
     blockedUrls: result.blockedUrls,
+    status: result.blocked === 0 ? 'complete' : 'partial',
     timestamp: Date.now(),
   }
+}
+
+/**
+ * Updates an existing batch history entry in place following a retry.
+ * Adjusts opened and blocked counts, moves newly opened URLs, and updates status.
+ */
+export function updateBatchHistoryItem(
+  item: BatchHistoryItem,
+  retryResult: OpenBatchResult,
+): BatchHistoryItem {
+  const newOpened = item.opened + retryResult.opened
+  const remainingBlocked = retryResult.blocked
+  const newOpenedUrls = [...item.openedUrls, ...retryResult.openedUrls]
+  const newBlockedUrls = retryResult.blockedUrls
+
+  return {
+    ...item,
+    opened: newOpened,
+    blocked: remainingBlocked,
+    openedUrls: newOpenedUrls,
+    blockedUrls: newBlockedUrls,
+    status: remainingBlocked === 0 ? 'complete' : 'partial',
+    timestamp: Date.now(),
+  }
+}
+
+/**
+ * Generates a deterministic signature string covering all parameters and URLs.
+ * If any item in the list changes (including middle items) or batch size changes,
+ * the signature changes and triggers a batch state reset.
+ */
+export function createResetSignature(params: {
+  scope: string
+  duplicateMode: string
+  query: string
+  filter: string
+  effectiveBatchSize: number
+  openableUrls: string[]
+}): string {
+  return [
+    params.scope,
+    params.duplicateMode,
+    params.query.trim(),
+    params.filter,
+    String(params.effectiveBatchSize),
+    ...params.openableUrls,
+  ].join('\n')
 }

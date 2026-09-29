@@ -20,10 +20,12 @@ import {
   DEFAULT_OCCURRENCE_MODE,
   MAX_CUSTOM_BATCH,
   createBatchHistoryItem,
+  createResetSignature,
   getBatch,
   getOpenableUrls,
   openUrlBatch,
   parseCustomBatchSize,
+  updateBatchHistoryItem,
   type BatchHistoryItem,
   type BatchPreset,
   type BatchSizeSelection,
@@ -87,20 +89,6 @@ export function OpenLinksControl({
     [allUrls, visibleUrls, scope, duplicateMode],
   )
 
-  // Track signature of openable URLs to automatically reset cursor and history when the list changes
-  const prevSignature = useRef('')
-  useEffect(() => {
-    const currentSignature = `${scope}:${duplicateMode}:${query}:${filter}:${openableUrls.length}:${openableUrls[0] ?? ''}:${openableUrls[openableUrls.length - 1] ?? ''}`
-    if (prevSignature.current && prevSignature.current !== currentSignature) {
-      setCursor(0)
-      setStatus('ready')
-      setBlockedNotice(null)
-      setHistory([])
-      setJustOpenedCount(null)
-    }
-    prevSignature.current = currentSignature
-  }, [openableUrls, scope, duplicateMode, query, filter])
-
   // Resolve effective batch size
   const effectiveBatchSize = useMemo(() => {
     if (batchPreset === 'custom') {
@@ -112,6 +100,26 @@ export function OpenLinksControl({
 
   const isCustomInvalid = batchPreset === 'custom' && parseCustomBatchSize(customInput) === null
 
+  // Track signature to automatically reset cursor, history, and blocked state when URLs or settings change
+  const prevSignature = useRef('')
+  useEffect(() => {
+    const currentSignature = createResetSignature({
+      scope,
+      duplicateMode,
+      query,
+      filter,
+      effectiveBatchSize,
+      openableUrls,
+    })
+    if (prevSignature.current && prevSignature.current !== currentSignature) {
+      setCursor(0)
+      setStatus('ready')
+      setBlockedNotice(null)
+      setHistory([])
+      setJustOpenedCount(null)
+    }
+    prevSignature.current = currentSignature
+  }, [openableUrls, scope, duplicateMode, query, filter, effectiveBatchSize])
   // Current batch slice
   const batchSlice = useMemo(
     () => getBatch(openableUrls, cursor, effectiveBatchSize),
@@ -168,7 +176,15 @@ export function OpenLinksControl({
   }
 
   const handleOpenNext = () => {
-    if (isComplete || batchSlice.urls.length === 0 || isCustomInvalid || status === 'opening') return
+    if (
+      isComplete ||
+      batchSlice.urls.length === 0 ||
+      isCustomInvalid ||
+      status === 'opening' ||
+      blockedNotice !== null
+    ) {
+      return
+    }
     const targetCount = batchSlice.urls.length
     if (targetCount >= CONFIRM_BATCH_THRESHOLD) {
       setConfirmAction({ count: targetCount, isAll: false })
@@ -184,6 +200,16 @@ export function OpenLinksControl({
     const retryResult = openUrlBatch(blockedNotice.blockedUrls)
     const newCursor = cursor + retryResult.opened
     setCursor(newCursor)
+
+    // Update existing batch history item in place
+    setHistory((prev) => {
+      if (prev.length === 0) return prev
+      const lastIndex = prev.length - 1
+      const updated = updateBatchHistoryItem(prev[lastIndex], retryResult)
+      const next = [...prev]
+      next[lastIndex] = updated
+      return next
+    })
 
     if (retryResult.opened > 0) {
       setJustOpenedCount(retryResult.opened)
@@ -209,7 +235,7 @@ export function OpenLinksControl({
   }
 
   const handleOpenAllRemaining = () => {
-    if (isComplete || remainingCount === 0 || status === 'opening') return
+    if (isComplete || remainingCount === 0 || status === 'opening' || blockedNotice !== null) return
     const cappedCount = Math.min(remainingCount, MAX_CUSTOM_BATCH)
     setConfirmAction({ count: cappedCount, isAll: true })
     setConfirmOpen(true)
@@ -385,12 +411,20 @@ export function OpenLinksControl({
           {/* Main Open Next Button */}
           <button
             type="button"
-            disabled={isComplete || batchSlice.urls.length === 0 || isCustomInvalid || status === 'opening'}
+            disabled={
+              isComplete ||
+              batchSlice.urls.length === 0 ||
+              isCustomInvalid ||
+              status === 'opening' ||
+              blockedNotice !== null
+            }
             onClick={handleOpenNext}
             aria-label={
-              isComplete
-                ? `All ${openableUrls.length} links opened`
-                : `Open next ${batchSlice.urls.length} links (items ${batchSlice.displayStart} to ${batchSlice.displayEnd})`
+              blockedNotice
+                ? `Please retry ${blockedNotice.blocked} blocked links before continuing`
+                : isComplete
+                  ? `All ${openableUrls.length} links opened`
+                  : `Open next ${batchSlice.urls.length} links (items ${batchSlice.displayStart} to ${batchSlice.displayEnd})`
             }
             className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:flex-initial ${
               isComplete
@@ -408,11 +442,13 @@ export function OpenLinksControl({
             <span>
               {status === 'opening'
                 ? 'Opening…'
-                : isComplete
-                  ? 'All opened ✓'
-                  : justOpenedCount !== null
-                    ? `${justOpenedCount} links opened ✓`
-                    : `Open next ${batchSlice.urls.length}`}
+                : blockedNotice !== null
+                  ? `Blocked (${blockedNotice.blocked} pending retry)`
+                  : isComplete
+                    ? 'All opened ✓'
+                    : justOpenedCount !== null
+                      ? `${justOpenedCount} links opened ✓`
+                      : `Open next ${batchSlice.urls.length}`}
             </span>
           </button>
 
@@ -434,8 +470,9 @@ export function OpenLinksControl({
           {remainingCount > 0 && remainingCount !== batchSlice.urls.length && (
             <button
               type="button"
+              disabled={blockedNotice !== null}
               onClick={handleOpenAllRemaining}
-              className="min-h-11 rounded-lg px-2 text-xs font-semibold text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+              className="min-h-11 rounded-lg px-2 text-xs font-semibold text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
             >
               Open all remaining ({remainingCount > MAX_CUSTOM_BATCH ? `${MAX_CUSTOM_BATCH} max` : remainingCount})
             </button>
@@ -463,11 +500,15 @@ export function OpenLinksControl({
           <span className="font-bold text-zinc-900 dark:text-zinc-100">
             {isComplete ? `All ${openableUrls.length} links opened` : `${cursor} / ${openableUrls.length} opened`}
           </span>
-          {!isComplete && openableUrls.length > 0 && (
+          {blockedNotice ? (
+            <span className="font-semibold text-amber-700 dark:text-amber-400">
+              ({blockedNotice.blocked} blocked in current batch — retry required)
+            </span>
+          ) : !isComplete && openableUrls.length > 0 ? (
             <span className="font-medium text-zinc-500 dark:text-zinc-400">
               Next: {batchSlice.displayStart}–{batchSlice.displayEnd}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -476,31 +517,44 @@ export function OpenLinksControl({
         </div>
       </div>
 
-      {/* Popup Blocker Alert Notification with Retry Button */}
+      {/* Popup Blocker Alert Notification with Primary Retry Button */}
       {blockedNotice && (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+          className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
         >
           <div className="flex items-start gap-2.5">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="space-y-0.5">
-              <p className="font-bold">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                Browser blocked {blockedNotice.blocked} links
+              </p>
+              <p className="leading-relaxed text-amber-900 dark:text-amber-200">
                 Your browser blocked some tabs. Allow pop-ups for Linkcount and try the remaining links again.
               </p>
-              <p className="text-amber-800 dark:text-amber-300">
+              <p className="font-medium text-amber-800 dark:text-amber-300">
                 Requested: {blockedNotice.requested} • Opened: {blockedNotice.opened} • Blocked: {blockedNotice.blocked}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleRetryBlocked}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3.5 text-xs font-bold text-white transition hover:bg-amber-700 active:scale-[0.98] motion-reduce:transition-none"
-          >
-            <RotateCcw size={13} />
-            <span>Retry {blockedNotice.blocked} blocked</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 pt-1 sm:justify-end">
+            <button
+              type="button"
+              onClick={handleRetryBlocked}
+              disabled={status === 'opening'}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:flex-initial"
+            >
+              <RotateCcw size={15} />
+              <span>Retry {blockedNotice.blocked} blocked</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 active:scale-[0.98] motion-reduce:transition-none dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-zinc-800"
+            >
+              Reset
+            </button>
+          </div>
         </div>
       )}
 
@@ -528,12 +582,21 @@ export function OpenLinksControl({
                     className="flex items-center justify-between px-3 py-2 text-xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">✓ Batch {item.batchNumber}</span>
+                      {item.status === 'complete' ? (
+                        <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Check size={13} strokeWidth={2.5} />
+                          <span>Batch {item.batchNumber}</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+                          <AlertTriangle size={13} />
+                          <span>Batch {item.batchNumber}</span>
+                        </span>
+                      )}
                       <span className="text-zinc-500 dark:text-zinc-400">Links {item.displayStart}–{item.displayEnd}</span>
                     </div>
                     <div className="text-zinc-600 dark:text-zinc-400">
-                      {item.opened} opened
-                      {item.blocked > 0 && <span className="ml-1 text-rose-600 dark:text-rose-400">({item.blocked} blocked)</span>}
+                      {item.opened} opened · {item.blocked} blocked
                     </div>
                   </motion.li>
                 ))}

@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import type { UrlItem } from './urls'
 import {
   createBatchHistoryItem,
+  createResetSignature,
+  defaultBrowserOpener,
+  DEFAULT_OCCURRENCE_MODE,
   getBatch,
   getOpenableUrls,
   openUrlBatch,
   parseCustomBatchSize,
+  updateBatchHistoryItem,
   type BatchHistoryItem,
 } from './openLinks'
 import { defaultTabGroupBridge, WebTabGroupBridge } from './tabGroups'
@@ -392,5 +396,178 @@ describe('tabGroups: progressive enhancement capability', () => {
   it('defaultTabGroupBridge is an instance of WebTabGroupBridge', () => {
     expect(defaultTabGroupBridge.capability).toBe('unavailable')
     expect(defaultTabGroupBridge.isAvailable()).toBe(false)
+  })
+})
+
+describe('openLinks: defaultBrowserOpener and popup detection pattern', () => {
+  it('opens a blank window, breaks opener reference, and navigates via location.replace', () => {
+    const replaceMock = vi.fn()
+    const mockWindow = {
+      closed: false,
+      opener: {} as unknown as Window,
+      location: { replace: replaceMock },
+    } as unknown as Window
+
+    vi.stubGlobal('window', {
+      open: vi.fn().mockReturnValue(mockWindow),
+    })
+
+    const result = defaultBrowserOpener('https://example.com/test')
+    expect(result).toBe(mockWindow)
+    expect(replaceMock).toHaveBeenCalledWith('https://example.com/test')
+    expect(mockWindow.opener).toBeNull()
+  })
+
+  it('returns null if window.open returns null (blocked) or closed window or throws', () => {
+    // 1. Returns null
+    vi.stubGlobal('window', { open: vi.fn().mockReturnValue(null) })
+    expect(defaultBrowserOpener('https://example.com/test')).toBeNull()
+
+    // 2. Returns closed window
+    vi.stubGlobal('window', { open: vi.fn().mockReturnValue({ closed: true }) })
+    expect(defaultBrowserOpener('https://example.com/test')).toBeNull()
+
+    // 3. Throws error
+    vi.stubGlobal('window', {
+      open: vi.fn().mockImplementation(() => {
+        throw new Error('Not allowed')
+      }),
+    })
+    expect(defaultBrowserOpener('https://example.com/test')).toBeNull()
+  })
+})
+
+describe('openLinks: updateBatchHistoryItem in place', () => {
+  it('updates an existing partial batch to complete when all retried URLs open', () => {
+    const initialSlice = { displayStart: 1, displayEnd: 10 }
+    const initialResult = {
+      requested: 10,
+      opened: 6,
+      blocked: 4,
+      openedUrls: ['https://a.com/1', 'https://a.com/2', 'https://a.com/3', 'https://a.com/4', 'https://a.com/5', 'https://a.com/6'],
+      blockedUrls: ['https://a.com/7', 'https://a.com/8', 'https://a.com/9', 'https://a.com/10'],
+    }
+    const item = createBatchHistoryItem(1, initialSlice, initialResult)
+    expect(item.status).toBe('partial')
+    expect(item.opened).toBe(6)
+    expect(item.blocked).toBe(4)
+
+    // Retry 4 links successfully
+    const retryResult = {
+      requested: 4,
+      opened: 4,
+      blocked: 0,
+      openedUrls: ['https://a.com/7', 'https://a.com/8', 'https://a.com/9', 'https://a.com/10'],
+      blockedUrls: [],
+    }
+    const updated = updateBatchHistoryItem(item, retryResult)
+    expect(updated.id).toBe(item.id)
+    expect(updated.batchNumber).toBe(1)
+    expect(updated.opened).toBe(10)
+    expect(updated.blocked).toBe(0)
+    expect(updated.status).toBe('complete')
+    expect(updated.blockedUrls).toEqual([])
+    expect(updated.openedUrls).toHaveLength(10)
+  })
+
+  it('updates an existing partial batch to partial when retry opens only some links', () => {
+    const item: BatchHistoryItem = {
+      id: 'batch-1-test',
+      batchNumber: 1,
+      displayStart: 1,
+      displayEnd: 10,
+      requested: 10,
+      opened: 6,
+      blocked: 4,
+      openedUrls: ['https://a.com/1', 'https://a.com/2', 'https://a.com/3', 'https://a.com/4', 'https://a.com/5', 'https://a.com/6'],
+      blockedUrls: ['https://a.com/7', 'https://a.com/8', 'https://a.com/9', 'https://a.com/10'],
+      status: 'partial',
+      timestamp: 1000,
+    }
+
+    const partialRetry = {
+      requested: 4,
+      opened: 2,
+      blocked: 2,
+      openedUrls: ['https://a.com/7', 'https://a.com/8'],
+      blockedUrls: ['https://a.com/9', 'https://a.com/10'],
+    }
+
+    const updated = updateBatchHistoryItem(item, partialRetry)
+    expect(updated.opened).toBe(8)
+    expect(updated.blocked).toBe(2)
+    expect(updated.status).toBe('partial')
+    expect(updated.blockedUrls).toEqual(['https://a.com/9', 'https://a.com/10'])
+  })
+})
+
+describe('openLinks: createResetSignature', () => {
+  const baseParams = {
+    scope: 'current',
+    duplicateMode: 'total',
+    query: '',
+    filter: 'all',
+    effectiveBatchSize: 10,
+    openableUrls: ['https://a.com', 'https://b.com', 'https://c.com'],
+  }
+
+  it('detects changes in middle items (A, B, C -> A, X, C)', () => {
+    const sig1 = createResetSignature(baseParams)
+    const sig2 = createResetSignature({
+      ...baseParams,
+      openableUrls: ['https://a.com', 'https://x.com', 'https://c.com'],
+    })
+    expect(sig1).not.toBe(sig2)
+  })
+
+  it('detects changes in batch size (10 -> 20)', () => {
+    const sig1 = createResetSignature(baseParams)
+    const sig2 = createResetSignature({
+      ...baseParams,
+      effectiveBatchSize: 20,
+    })
+    expect(sig1).not.toBe(sig2)
+  })
+
+  it('detects changes in scope, duplicateMode, query, or filter', () => {
+    const sig1 = createResetSignature(baseParams)
+    expect(createResetSignature({ ...baseParams, scope: 'all' })).not.toBe(sig1)
+    expect(createResetSignature({ ...baseParams, duplicateMode: 'unique' })).not.toBe(sig1)
+    expect(createResetSignature({ ...baseParams, query: 'test' })).not.toBe(sig1)
+    expect(createResetSignature({ ...baseParams, filter: 'valid' })).not.toBe(sig1)
+  })
+})
+
+describe('openLinks: Total URLs default validation', () => {
+  it('DEFAULT_OCCURRENCE_MODE is strictly "total"', () => {
+    expect(DEFAULT_OCCURRENCE_MODE).toBe('total')
+  })
+
+  it('preserves all duplicates with [A, A, B] in default Total URLs mode (returning 3), and deduplicates in unique mode (returning 2)', () => {
+    const items = [
+      makeUrlItem({ raw: 'https://a.com', normalized: 'https://a.com', valid: true, duplicate: false }),
+      makeUrlItem({ raw: 'https://a.com', normalized: 'https://a.com', valid: true, duplicate: true }),
+      makeUrlItem({ raw: 'https://b.com', normalized: 'https://b.com', valid: true, duplicate: false }),
+    ]
+
+    // Default Total URLs mode
+    const totalUrls = getOpenableUrls({
+      allUrls: items,
+      visibleUrls: items,
+      scope: 'current',
+      duplicateMode: DEFAULT_OCCURRENCE_MODE,
+    })
+    expect(totalUrls).toHaveLength(3)
+    expect(totalUrls).toEqual(['https://a.com', 'https://a.com', 'https://b.com'])
+
+    // Explicit Unique URLs mode
+    const uniqueUrls = getOpenableUrls({
+      allUrls: items,
+      visibleUrls: items,
+      scope: 'current',
+      duplicateMode: 'unique',
+    })
+    expect(uniqueUrls).toHaveLength(2)
+    expect(uniqueUrls).toEqual(['https://a.com', 'https://b.com'])
   })
 })
