@@ -25,7 +25,7 @@ exporting links from pasted text — without ever changing your source list.
 
 **Shorten**
 
-- URL shortener via TinyURL with at most 5 concurrent requests
+- URL shortener (clck.ru → is.gd → TinyURL automatic fallback, max 5 concurrent requests)
 - Shorten per link or shorten all (valid links only)
 - Per-link status: waiting → shortening → done / failed (one failure never stops the batch)
 - Live progress (`Shortening 14/50`) with screen-reader announcements
@@ -111,7 +111,7 @@ Active development happens on the `Chatgpt` branch of
 
 Linkcount คือเว็บเครื่องมือช่วยนับและจัดการลิงก์จากข้อความที่วางเข้าไป —
 นับจำนวนทั้งหมด/ไม่ซ้ำ/ซ้ำ แยกตามโดเมน ตรวจ valid/invalid ค้นหา กรอง
-ย่อลิงก์ด้วย TinyURL (สูงสุด 5 คำขอพร้อมกัน) คัดลอกและ export TXT/CSV
+ย่อลิงก์ (มี fallback อัตโนมัติหลายเจ้า สูงสุด 5 คำขอพร้อมกัน) คัดลอกและ export TXT/CSV
 รองรับ Markdown link (`[label](dest)` นับเฉพาะปลายทาง) และ autolink
 `<url>` ธีมมืด/สว่าง รองรับมือถือ คีย์บอร์ด และ `prefers-reduced-motion`
 ลิงก์ซ้ำจะถูกติดป้ายกำกับไว้เท่านั้น ไม่มีการลบออกจากรายการเดิม

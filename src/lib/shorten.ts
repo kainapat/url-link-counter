@@ -8,14 +8,65 @@ export type ShortenEntry = {
 
 export const SHORTEN_CONCURRENCY = 5
 
-export async function shortenOne(longUrl: string, signal?: AbortSignal): Promise<string> {
-  const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`, {
-    signal,
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+type Provider = {
+  name: string
+  request: (longUrl: string, signal?: AbortSignal) => Promise<string>
+}
+
+async function readShortUrl(res: Response, provider: string): Promise<string> {
+  if (!res.ok) throw new Error(`${provider} HTTP ${res.status}`)
   const text = (await res.text()).trim()
-  if (!/^https?:\/\//.test(text)) throw new Error(text.slice(0, 120) || 'Bad response')
+  if (!/^https?:\/\//.test(text)) throw new Error(`${provider}: ${text.slice(0, 120) || 'bad response'}`)
   return text
+}
+
+// Ordered by browser reachability. TinyURL/is.gd omit CORS headers for
+// third-party origins, so direct browser calls to them always fail with
+// "Failed to fetch" — clck.ru sends `Access-Control-Allow-Origin: *`.
+const PROVIDERS: Provider[] = [
+  {
+    name: 'clck.ru',
+    request: async (longUrl, signal) =>
+      readShortUrl(
+        await fetch(`https://clck.ru/--?url=${encodeURIComponent(longUrl)}`, { signal }),
+        'clck.ru',
+      ),
+  },
+  {
+    name: 'is.gd',
+    request: async (longUrl, signal) =>
+      readShortUrl(
+        await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`, {
+          signal,
+        }),
+        'is.gd',
+      ),
+  },
+  {
+    name: 'TinyURL',
+    request: async (longUrl, signal) =>
+      readShortUrl(
+        await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`, {
+          signal,
+        }),
+        'TinyURL',
+      ),
+  },
+]
+
+export async function shortenOne(longUrl: string, signal?: AbortSignal): Promise<string> {
+  const failures: string[] = []
+  for (const provider of PROVIDERS) {
+    try {
+      return await provider.request(longUrl, signal)
+    } catch (err) {
+      if (signal?.aborted) throw err
+      failures.push(err instanceof Error ? err.message : String(err))
+    }
+  }
+  throw new Error(
+    `All shorteners unreachable (${failures.join('; ') || 'network error'}). Check your connection or adblocker and try again.`,
+  )
 }
 
 export type BatchUpdate = (index: number, entry: ShortenEntry, done: number, total: number) => void

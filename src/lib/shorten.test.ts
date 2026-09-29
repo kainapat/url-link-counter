@@ -16,8 +16,8 @@ afterEach(() => {
 })
 
 describe('shortenBatch', () => {
-  it('caps concurrency at 5 and keeps going after a failure', async () => {
-    const gates = Array.from({ length: 8 }, () => deferred<Response>())
+  it('caps concurrency at 5 and retries the next provider after a failure', async () => {
+    const gates = Array.from({ length: 9 }, () => deferred<Response>())
     let inFlight = 0
     let maxInFlight = 0
     const calls: string[] = []
@@ -44,25 +44,38 @@ describe('shortenBatch', () => {
     await vi.waitFor(() => expect(calls.length).toBe(5))
     expect(maxInFlight).toBeLessThanOrEqual(5)
 
-    // Fail the first request — the batch must continue.
+    // Fail the first provider attempt — the url must fall back, batch continues.
     gates[0].reject(new Error('boom'))
     await vi.waitFor(() => expect(calls.length).toBe(6))
+    expect(calls[5]).toContain('is.gd')
 
-    // Resolve everything else.
-    for (let i = 1; i < 8; i++) {
+    // Resolve everything else (retry + remaining).
+    for (let i = 1; i < 9; i++) {
       gates[i].resolve(new Response(`https://tinyurl.com/x${i}`, { status: 200 }))
     }
     await run
 
     expect(maxInFlight).toBeLessThanOrEqual(5)
-    expect(calls).toHaveLength(8)
-    expect(updates.filter((u) => u.endsWith(':done'))).toHaveLength(7)
-    expect(updates.filter((u) => u.endsWith(':failed'))).toHaveLength(1)
+    expect(calls).toHaveLength(9)
+    expect(updates.filter((u) => u.endsWith(':done'))).toHaveLength(8)
+    expect(updates.filter((u) => u.endsWith(':failed'))).toHaveLength(0)
   })
 
   it('shortenOne rejects non-url responses', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('Error: not found', { status: 200 })))
     const { shortenOne } = await import('./shorten')
-    await expect(shortenOne('https://example.com')).rejects.toThrow()
+    await expect(shortenOne('https://example.com')).rejects.toThrow(/All shorteners unreachable/)
+  })
+
+  it('falls back to the next provider when the first is unreachable (CORS)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('clck.ru')) return Promise.reject(new TypeError('Failed to fetch'))
+        return Promise.resolve(new Response('https://is.gd/abc123', { status: 200 }))
+      }),
+    )
+    const { shortenOne } = await import('./shorten')
+    await expect(shortenOne('https://example.com')).resolves.toBe('https://is.gd/abc123')
   })
 })
