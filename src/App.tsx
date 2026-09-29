@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Check,
@@ -8,16 +8,24 @@ import {
   ExternalLink,
   Github,
   Link2,
+  Loader2,
   Moon,
+  Scissors,
   Search,
   Sun,
 } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { countDomains, parseUrls } from './lib/urls'
+import { shortenBatch, shortenOne, type ShortenEntry } from './lib/shorten'
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, index = 0 }: { label: string; value: number; index?: number }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: 0.15 + index * 0.05 }}
+      className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+    >
       <div className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{label}</div>
       <motion.div
         key={value}
@@ -28,7 +36,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
       >
         {value}
       </motion.div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -48,7 +56,7 @@ function IconButton({
           type="button"
           aria-label={label}
           onClick={onClick}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-zinc-200 bg-white transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-zinc-200 bg-white transition hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
           {children}
         </button>
@@ -73,6 +81,10 @@ export default function App() {
   const [copied, setCopied] = useState<string | null>(null)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [showAllDomains, setShowAllDomains] = useState(false)
+  const [shortened, setShortened] = useState<Record<string, ShortenEntry>>({})
+  const [shortenActive, setShortenActive] = useState(false)
+  const [shortenProgress, setShortenProgress] = useState({ done: 0, total: 0 })
+  const shortenRun = useRef(0)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
 
   const urls = useMemo(() => parseUrls(input), [input])
@@ -152,11 +164,69 @@ export default function App() {
   }
 
   const domainEntries = [...domainCounts.entries()]
-  const visibleDomains = showAllDomains ? domainEntries : domainEntries.slice(0, 5)
+  const topDomains = domainEntries.slice(0, 5)
+  const restDomains = domainEntries.slice(5)
+
+  const uniqueValid = useMemo(() => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const u of urls) {
+      if (!u.valid) continue
+      if (seen.has(u.normalized)) continue
+      seen.add(u.normalized)
+      out.push(u.normalized)
+    }
+    return out
+  }, [urls])
+
+  const shortenedDone = useMemo(
+    () => uniqueValid.filter((u) => shortened[u]?.status === 'done'),
+    [uniqueValid, shortened],
+  )
+
+  const shortenSingle = async (longUrl: string) => {
+    const run = ++shortenRun.current
+    setShortened((prev) => ({ ...prev, [longUrl]: { status: 'shortening' } }))
+    try {
+      const shortUrl = await shortenOne(longUrl)
+      if (shortenRun.current !== run) return
+      setShortened((prev) => ({ ...prev, [longUrl]: { status: 'done', shortUrl } }))
+    } catch (err) {
+      if (shortenRun.current !== run) return
+      setShortened((prev) => ({
+        ...prev,
+        [longUrl]: { status: 'failed', error: err instanceof Error ? err.message : 'Failed' },
+      }))
+    }
+  }
+
+  const shortenAllUrls = async () => {
+    if (shortenActive || uniqueValid.length === 0) return
+    const run = ++shortenRun.current
+    const targets = uniqueValid.filter((u) => shortened[u]?.status !== 'done')
+    setShortenActive(true)
+    setShortenProgress({ done: 0, total: targets.length })
+    await shortenBatch(
+      targets,
+      (index, entry, done, total) => {
+        if (shortenRun.current !== run) return
+        const url = targets[index]
+        setShortened((prev) => ({ ...prev, [url]: entry }))
+        setShortenProgress({ done, total })
+      },
+      { isCancelled: () => shortenRun.current !== run },
+    )
+    if (shortenRun.current === run) setShortenActive(false)
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <motion.header
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg border border-zinc-700 bg-zinc-950 text-white dark:border-zinc-200 dark:bg-white dark:text-zinc-950">
@@ -184,10 +254,15 @@ export default function App() {
             </a>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        <section className="mb-8 max-w-2xl">
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-8 max-w-2xl"
+        >
           <p className="mb-3 text-sm font-medium text-indigo-600 dark:text-indigo-400">Analyze URLs</p>
           <h1 className="text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
             Paste links. See what is actually there.
@@ -195,10 +270,15 @@ export default function App() {
           <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400 sm:text-base">
             Count URLs, inspect duplicates, validate links, search results and export them — without changing your source list.
           </p>
-        </section>
+        </motion.section>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,.5fr)]">
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6"
+          >
             <label htmlFor="url-input" className="mb-2 block text-sm font-medium">
               URLs or text containing URLs
             </label>
@@ -221,14 +301,14 @@ export default function App() {
                 Clear
               </button>
             </div>
-          </div>
+          </motion.div>
 
           <aside className="grid grid-cols-2 gap-3 lg:grid-cols-1" aria-label="URL statistics">
-            <StatCard label="Total URLs" value={urls.length} />
-            <StatCard label="Unique" value={uniqueCount} />
-            <StatCard label="Duplicates" value={duplicates} />
-            <StatCard label="Domains" value={domains} />
-            <StatCard label="Invalid" value={invalid} />
+            <StatCard label="Total URLs" value={urls.length} index={0} />
+            <StatCard label="Unique" value={uniqueCount} index={1} />
+            <StatCard label="Duplicates" value={duplicates} index={2} />
+            <StatCard label="Domains" value={domains} index={3} />
+            <StatCard label="Invalid" value={invalid} index={4} />
           </aside>
         </section>
 
@@ -246,7 +326,7 @@ export default function App() {
           ) : (
             <>
               <ul className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
-                {visibleDomains.map(([domain, count]) => (
+                {topDomains.map(([domain, count]) => (
                   <li key={domain} className="flex min-w-0 items-center justify-between gap-3 py-2">
                     <button
                       type="button"
@@ -262,6 +342,33 @@ export default function App() {
                   </li>
                 ))}
               </ul>
+              <AnimatePresence initial={false}>
+                {showAllDomains && restDomains.length > 0 && (
+                  <motion.ul
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="divide-y divide-zinc-100 overflow-hidden dark:divide-zinc-800"
+                  >
+                    {restDomains.map(([domain, count]) => (
+                      <li key={domain} className="flex min-w-0 items-center justify-between gap-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => { setQuery(domain); setFilter('all') }}
+                          title={`Search ${domain}`}
+                          className="min-w-0 flex-1 truncate rounded text-left text-sm font-medium hover:underline focus-visible:underline"
+                        >
+                          {domain}
+                        </button>
+                        <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                          {count}
+                        </span>
+                      </li>
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
               {domainEntries.length > 5 && (
                 <button
                   type="button"
@@ -318,7 +425,7 @@ export default function App() {
               type="button"
               disabled={!urls.length}
               onClick={() => copyText(urls.map((u) => u.normalized).join('\n'), 'all')}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
             >
               {copied === 'all' ? <Check size={17} /> : <Clipboard size={17} />}
               {copied === 'all' ? 'Copied' : 'Copy all'}
@@ -328,7 +435,7 @@ export default function App() {
               type="button"
               disabled={!urls.length}
               onClick={() => exportFile('txt')}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium disabled:opacity-40 dark:border-zinc-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium transition active:scale-[0.98] disabled:opacity-40 dark:border-zinc-700"
             >
               <Download size={17} />
               TXT
@@ -338,12 +445,40 @@ export default function App() {
               type="button"
               disabled={!urls.length}
               onClick={() => exportFile('csv')}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium disabled:opacity-40 dark:border-zinc-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium transition active:scale-[0.98] disabled:opacity-40 dark:border-zinc-700"
             >
               <Download size={17} />
               CSV
             </button>
+
+            <button
+              type="button"
+              disabled={uniqueValid.length === 0 || shortenActive}
+              onClick={shortenAllUrls}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium transition active:scale-[0.98] disabled:opacity-40 dark:border-zinc-700"
+            >
+              {shortenActive ? <Loader2 size={17} className="animate-spin" /> : <Scissors size={17} />}
+              {shortenActive ? `Shortening ${shortenProgress.done}/${shortenProgress.total}` : 'Shorten all'}
+            </button>
+
+            {shortenedDone.length > 0 && (
+              <button
+                type="button"
+                onClick={() => copyText(shortenedDone.map((u) => shortened[u]?.shortUrl ?? u).join('\n'), 'short-all')}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium transition active:scale-[0.98] dark:border-zinc-700"
+              >
+                {copied === 'short-all' ? <Check size={17} /> : <Clipboard size={17} />}
+                {copied === 'short-all' ? 'Copied' : `Copy shortened (${shortenedDone.length})`}
+              </button>
+            )}
           </div>
+          <p aria-live="polite" className="sr-only">
+            {shortenActive
+              ? `Shortening URLs, ${shortenProgress.done} of ${shortenProgress.total} done.`
+              : shortenedDone.length > 0
+                ? `${shortenedDone.length} shortened URLs ready.`
+                : ''}
+          </p>
           {copyError && (
             <p role="alert" className="border-b border-zinc-200 px-4 py-2 text-sm text-rose-700 dark:border-zinc-800 dark:text-rose-300 sm:px-6">
               {copyError}
@@ -355,11 +490,11 @@ export default function App() {
               {visibleUrls.map((item, index) => (
                 <motion.article
                   key={`${item.normalized}-${index}`}
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={index < 60 ? { opacity: 0, y: 6 } : false}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.16 }}
-                  className="grid gap-3 p-4 sm:p-6 lg:grid-cols-[44px_minmax(0,1fr)_180px_140px_92px] lg:items-center"
+                  transition={{ duration: 0.16, delay: index < 40 ? Math.min(index * 0.015, 0.3) : 0 }}
+                  className="grid gap-3 p-4 transition-colors hover:bg-zinc-50 sm:p-6 lg:grid-cols-[44px_minmax(0,1fr)_180px_140px_minmax(0,auto)] lg:items-center dark:hover:bg-zinc-800/40"
                 >
                   <div className="text-xs tabular-nums text-zinc-400">#{index + 1}</div>
 
@@ -374,6 +509,16 @@ export default function App() {
                       <span className="block truncate">{item.normalized}</span>
                       {item.valid && <ExternalLink aria-hidden="true" className="shrink-0 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" size={15} />}
                     </a>
+                    {item.valid && shortened[item.normalized]?.status === 'done' && (
+                      <p className="mt-1 truncate text-sm text-indigo-700 dark:text-indigo-300" title={shortened[item.normalized]?.shortUrl}>
+                        → {shortened[item.normalized]?.shortUrl}
+                      </p>
+                    )}
+                    {item.valid && shortened[item.normalized]?.status === 'failed' && (
+                      <p className="mt-1 text-sm text-rose-700 dark:text-rose-300">
+                        Shorten failed{shortened[item.normalized]?.error ? ` — ${shortened[item.normalized]?.error}` : ''}. Try again.
+                      </p>
+                    )}
                   </div>
 
                   <div className="truncate text-sm text-zinc-600 dark:text-zinc-400" title={item.domain}>{item.domain}</div>
@@ -393,13 +538,52 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="flex lg:justify-end">
-                    <IconButton
-                      label="Copy URL"
-                      onClick={() => copyText(item.normalized, `row-${index}`)}
-                    >
-                      {copied === `row-${index}` ? <Check size={17} /> : <Copy size={17} />}
-                    </IconButton>
+                  <div className="flex gap-2 lg:justify-end">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={copied === `row-${index}` ? 'check' : 'copy'}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.12 }}
+                        className="inline-flex"
+                      >
+                        <IconButton
+                          label="Copy URL"
+                          onClick={() => copyText(item.normalized, `row-${index}`)}
+                        >
+                          {copied === `row-${index}` ? <Check size={17} /> : <Copy size={17} />}
+                        </IconButton>
+                      </motion.span>
+                    </AnimatePresence>
+                    {item.valid && (
+                      <IconButton
+                        label={
+                          shortened[item.normalized]?.status === 'shortening'
+                            ? 'Shortening…'
+                            : shortened[item.normalized]?.status === 'done'
+                              ? 'Shorten again'
+                              : 'Shorten URL'
+                        }
+                        onClick={() => shortenSingle(item.normalized)}
+                      >
+                        {shortened[item.normalized]?.status === 'shortening' ? (
+                          <Loader2 size={17} className="animate-spin" />
+                        ) : shortened[item.normalized]?.status === 'done' ? (
+                          <Check size={17} />
+                        ) : (
+                          <Scissors size={17} />
+                        )}
+                      </IconButton>
+                    )}
+                    {item.valid && shortened[item.normalized]?.status === 'done' && (
+                      <IconButton
+                        label="Copy shortened URL"
+                        onClick={() => copyText(shortened[item.normalized]?.shortUrl ?? item.normalized, `short-${index}`)}
+                      >
+                        {copied === `short-${index}` ? <Check size={17} /> : <Clipboard size={17} />}
+                      </IconButton>
+                    )}
                   </div>
                 </motion.article>
               ))}

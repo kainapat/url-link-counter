@@ -6,9 +6,26 @@ export type UrlItem = {
   duplicate: boolean
 }
 
-export const URL_REGEX = /https?:\/\/[^\s<>"'`]+/gi
+type Span = {
+  /** Matched text that produced the URL (markdown source, autolink, or plain match). */
+  raw: string
+  /** URL after wrapper-syntax cleaning. Query/fragment preserved verbatim. */
+  normalized: string
+  /** Source range consumed by this match — plain-URL extraction must skip it. */
+  start: number
+  end: number
+}
 
-const ALWAYS_STRIP = new Set(['.', ',', ';', ':', '!', '?'])
+export const URL_REGEX = /https?:\/\/[^\s<>"'`]+/gi
+const AUTOLINK_REGEX = /<(https?:\/\/[^<>\s]+)>/gi
+
+/**
+ * Punctuation stripped unconditionally from the end of a URL.
+ * Deliberately NOT including `; : ! ?` — those can be a real part of a URL
+ * (query strings, fragments, matrix params). Only `.,'"` and a trailing
+ * markdown-escape backslash are safe wrappers.
+ */
+const ALWAYS_STRIP = new Set(['.', ',', '"', "'", '\\'])
 const PAIRS: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
 
 function countChar(value: string, char: string): number {
@@ -18,12 +35,13 @@ function countChar(value: string, char: string): number {
 }
 
 /**
- * Balanced-aware trailing punctuation strip (Q5).
- * - Strips trailing .,;:!? unconditionally (wrappers, never part of a URL end).
- * - Strips a trailing closer (), [], {} only when it is unbalanced,
- *   i.e. closers outnumber openers in the remaining string.
- * - Preserves query parameters and fragments verbatim.
- * - No decode/encode, no lowercasing, no slash-trimming (Q2).
+ * Balanced-aware trailing wrapper strip.
+ * - Strips trailing `. , " ' \` unconditionally.
+ * - Strips a trailing closer `) ] }` only when unbalanced in the remainder,
+ *   so `…/Link_(film)` and `/path_(test)` survive while prose wrappers like
+ *   `(https://example.com)` and `https://example.com).` are cleaned.
+ * - Never touches query parameters, fragments, casing, slashes, or scheme.
+ * - No decode/encode.
  */
 export function cleanUrl(value: string): string {
   let url = value
@@ -51,17 +69,131 @@ export function cleanUrl(value: string): string {
   }
 }
 
-export function parseUrls(input: string): UrlItem[] {
-  const rawUrls = input.match(URL_REGEX) ?? []
-  const seen = new Map<string, number>()
+function overlaps(spans: Span[], start: number, end: number): boolean {
+  return spans.some((s) => start < s.end && end > s.start)
+}
 
-  const base = rawUrls.map((raw) => {
-    const normalized = cleanUrl(raw)
+/**
+ * Scan `[label](destination)` links (including escaped/numbered-list forms
+ * like `1\. [label](dest)\`). Only `destination` is counted — a URL in the
+ * label is consumed, never double-counted.
+ */
+export function extractMarkdownLinks(input: string): Span[] {
+  const spans: Span[] = []
+  let i = 0
+
+  while (i < input.length) {
+    const open = input.indexOf('[', i)
+    if (open === -1) break
+
+    // Find closing `]` honoring `\]` escapes.
+    let j = open + 1
+    let closeBracket = -1
+    while (j < input.length) {
+      const c = input[j]
+      if (c === '\\') {
+        j += 2
+        continue
+      }
+      if (c === ']') {
+        closeBracket = j
+        break
+      }
+      if (c === '\n') break
+      j += 1
+    }
+    if (closeBracket === -1 || input[closeBracket + 1] !== '(') {
+      i = open + 1
+      continue
+    }
+
+    // Parse destination with balanced parens, honoring `\` escapes.
+    let k = closeBracket + 2
+    let depth = 1
+    let destEnd = -1
+    let aborted = false
+    while (k < input.length) {
+      const c = input[k]
+      if (c === '\\') {
+        k += 2
+        continue
+      }
+      if (c === '(') depth += 1
+      else if (c === ')') {
+        depth -= 1
+        if (depth === 0) {
+          destEnd = k
+          break
+        }
+      } else if (c === '\n' || c === ' ') {
+        aborted = true
+        break
+      }
+      k += 1
+    }
+    if (aborted || destEnd === -1) {
+      i = open + 1
+      continue
+    }
+
+    const dest = input.slice(closeBracket + 2, destEnd).trim().replace(/^<|>$/g, '')
+    if (/^https?:\/\//i.test(dest)) {
+      const normalized = cleanUrl(dest)
+      if (normalized) {
+        spans.push({ raw: input.slice(open, destEnd + 1), normalized, start: open, end: destEnd + 1 })
+      }
+    }
+    i = destEnd + 1
+  }
+
+  return spans
+}
+
+export function extractAutolinks(input: string, consumed: Span[]): Span[] {
+  const spans: Span[] = []
+  AUTOLINK_REGEX.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = AUTOLINK_REGEX.exec(input)) !== null) {
+    const start = m.index
+    const end = start + m[0].length
+    if (overlaps(consumed, start, end)) continue
+    const normalized = cleanUrl(m[1])
+    if (normalized) spans.push({ raw: m[0], normalized, start, end })
+  }
+  return spans
+}
+
+export function extractPlainUrls(input: string, consumed: Span[]): Span[] {
+  const spans: Span[] = []
+  URL_REGEX.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = URL_REGEX.exec(input)) !== null) {
+    const start = m.index
+    const end = start + m[0].length
+    if (overlaps(consumed, start, end)) continue
+    const normalized = cleanUrl(m[0])
+    if (normalized) spans.push({ raw: m[0], normalized, start, end })
+  }
+  return spans
+}
+
+/**
+ * Pipeline: markdown links → autolinks → plain URLs (skipping consumed
+ * ranges) → validate → duplicate analysis. Results stay in document order.
+ */
+export function parseUrls(input: string): UrlItem[] {
+  const md = extractMarkdownLinks(input)
+  const auto = extractAutolinks(input, md)
+  const plain = extractPlainUrls(input, [...md, ...auto])
+  const ordered = [...md, ...auto, ...plain].sort((a, b) => a.start - b.start)
+
+  const seen = new Map<string, number>()
+  const base = ordered.map((span) => {
     let domain = 'Unknown'
     let valid = true
 
     try {
-      const parsed = new URL(normalized)
+      const parsed = new URL(span.normalized)
       domain = parsed.hostname.replace(/^www\./, '')
       if (!domain) {
         valid = false
@@ -71,9 +203,9 @@ export function parseUrls(input: string): UrlItem[] {
       valid = false
     }
 
-    seen.set(normalized, (seen.get(normalized) ?? 0) + 1)
+    seen.set(span.normalized, (seen.get(span.normalized) ?? 0) + 1)
 
-    return { raw, normalized, domain, valid, duplicate: false }
+    return { raw: span.raw, normalized: span.normalized, domain, valid, duplicate: false }
   })
 
   return base.map((item) => ({
