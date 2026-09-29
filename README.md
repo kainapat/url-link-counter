@@ -11,12 +11,13 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite 6](https://img.shields.io/badge/Vite-6.4-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![Tailwind CSS 3](https://img.shields.io/badge/Tailwind-3.4-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vitest](https://img.shields.io/badge/Vitest-45_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-54_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Radix UI](https://img.shields.io/badge/Radix_UI-Primitives-black?style=for-the-badge&logo=radixui&logoColor=white)](https://www.radix-ui.com/)
 [![Motion](https://img.shields.io/badge/Motion-12-ff0055?style=for-the-badge&logo=framer&logoColor=white)](https://motion.dev/)
 
 [✨ Key Features](#-key-features) •
 [🚀 Batch Link Opener](#-batch-link-opener) •
+[🛡️ Hardened Popup Detection & Recovery](#️-hardened-popup-detection--recovery) •
 [📑 Tab Groups & Progressive Enhancement](#-tab-groups--progressive-enhancement) •
 [🔄 Parser Pipeline](#-parser-pipeline) •
 [⚡ URL Shortener](#-multi-provider-url-shortener) •
@@ -80,7 +81,7 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 ### 🚀 Batch Link Opener
 - **Smart Paging**: Open links in customizable chunks (**10**, **20**, **30**, **50**, or **Custom 1–100**).
 - **Internal Batch Naming**: Automatically organizes links into clear numbered groups (**Batch 1**, **Batch 2**, etc., e.g. `Batch 2 of 8 (Links 11–20)`).
-- **Session Batch History**: Real-time expandable drawer logging every opened batch (`✓ Batch 1: Links 1–10 (10 opened)`).
+- **Session Batch History with In-Place Updates**: Real-time expandable drawer logging every opened batch (`✓ Batch 1: Links 1–10 (10 opened · 0 blocked)` vs `⚠ Batch 1: Links 1–10 (6 opened · 4 blocked)`). Retries update the batch in place rather than creating duplicate entries.
 - **Zero-Waste Reset**: Reset the cursor and history back to URL #1 anytime with the `Reset` action.
 - **Strict Validity Filter**: Invalid URLs are automatically excluded; only valid, sanitized links are queued.
 - **Occurrence Mode Control (Global Toolbar)**:
@@ -90,12 +91,18 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 - **Dynamic Scope Selection**:
   - **Current results** *(Default)*: Opens strictly what is visible after search queries or type filters.
   - **All valid URLs**: Opens all valid URLs from the entire input, ignoring active filters.
-- **Popup Blocker Detection with Immediate Retry**:
-  - Validates `window.open` return handles and never reports fake successes.
-  - Displays accurate counts: `Requested: 10 • Opened: 6 • Blocked: 4`.
-  - Holds the cursor at the last successfully opened URL.
-  - Provides a dedicated **`[ ↺ Retry 4 blocked ]`** button to re-attempt only the blocked links.
+- **Whole-List Signature Tracking**: Detects any change across the entire list (including middle items `A, B, C` ➔ `A, X, C`) or batch size (10 ➔ 20), automatically resetting progress to prevent cursor skew.
 - **Resource Safety Dialog**: Prompts lightweight Radix confirmation dialogs for large batches (**≥ 30 tabs**) or when using **Open all remaining** (capped at 100) to protect system memory.
+
+### 🛡️ Hardened Popup Detection & Recovery
+- **No False Positives**: Uses the reliable `window.open('', '_blank')` pattern followed by `newWindow.location.replace(url)` to prevent Chromium from disowning the handle (which happens when passing `'noopener'` directly).
+- **Reverse-Tabnabbing Protection**: Automatically severs `newWindow.opener = null` without sacrificing blocker detection accuracy.
+- **Blocked State Safeguards**:
+  - Automatically disables `Open next` and `Open all remaining` whenever blocked URLs are pending.
+  - Replaces next-batch hints with actionable retry guidance: `(4 blocked in current batch — retry required)`.
+  - Displays a high-visibility alert banner: `Requested: 10 • Opened: 6 • Blocked: 4`.
+  - Promotes **`[ ↺ Retry 4 blocked ]`** as the primary action to re-attempt only the un-opened URLs.
+  - Advances the cursor strictly by the actual opened count, preventing duplicate tab opens on subsequent clicks.
 
 ### 🔍 Precision URL Extraction
 - **Markdown Link Support**: Automatically parses `[label](https://destination.com)` and extracts **only** the destination URL, preventing label text from corrupting link statistics.
@@ -148,15 +155,29 @@ flowchart TD
     G -->|"No"| I["Direct User Gesture Click"]
     H -->|"Confirmed"| I
     H -->|"Cancelled"| J["Aborted"]
-    I --> K["openUrlBatch() -> window.open()"]
+    I --> K["openUrlBatch() -> defaultBrowserOpener()"]
     K --> L{"Popup Blocker Check"}
     L -->|"All links opened"| M["Advance Cursor by Opened Count + Log History"]
-    L -->|"Links blocked"| N["Show Alert: Blocked count + Enable 'Retry Blocked' Action"]
+    L -->|"Links blocked"| N["Disable Open Next + Show Alert + Enable 'Retry Blocked'"]
     N -->|"User clicks Retry"| K
     M --> O{"Cursor ≥ Total?"}
     O -->|"Yes"| P["State: Complete ('All opened ✓')"]
     O -->|"No"| Q["State: Opened (Ready for next batch)"]
 ```
+
+---
+
+## 🛡️ Hardened Popup Detection & Recovery
+
+Standard web applications face severe limitations when opening multiple tabs due to aggressive browser popup blockers:
+
+| Challenge | Linkcount Solution |
+|---|---|
+| `'noopener'` causes Chromium to return `null` even on success | Uses `window.open('', '_blank')` + `location.replace(url)` to capture the window reference synchronously |
+| Risk of Reverse-Tabnabbing | Severed via `try { newWindow.opener = null } catch {}` before navigation |
+| Partial batch blocking corrupts cursor | Cursor increments strictly by `result.opened` (e.g. 6 of 10) |
+| User advances cursor prematurely | `Open next` and `Open all remaining` are automatically disabled until blocked items are retried or reset |
+| Blocked tab retry UX | Dedicated **`[ ↺ Retry {N} blocked ]`** button retries only the failed subset and updates history in place |
 
 ---
 
@@ -300,7 +321,7 @@ Network requests are managed by an asynchronous worker pool with automatic retry
 | **Animation** | [Motion](https://motion.dev/) | Spring transitions with reduced-motion support |
 | **Icons** | [Lucide React](https://lucide.dev/) | Clean, accessible SVG iconography |
 | **Primitives** | [Radix UI](https://www.radix-ui.com/) | Accessible dialogs (`AlertDialog`) & tooltips (`Tooltip`) |
-| **Testing** | [Vitest](https://vitest.dev/) | 45 comprehensive unit, concurrency & batch opener tests |
+| **Testing** | [Vitest](https://vitest.dev/) | 54 comprehensive unit, concurrency & batch opener tests |
 
 ---
 
@@ -335,7 +356,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ### Testing
 
 ```bash
-# Run Vitest test suite (45 tests)
+# Run Vitest test suite (54 tests)
 npm run test
 ```
 
@@ -361,7 +382,7 @@ url-link-counter/
 │   ├── lib/
 │   │   ├── tabGroups.ts         # Progressive enhancement contract & web fallback
 │   │   ├── openLinks.ts         # Pure batching logic, validation, history & opener engine
-│   │   ├── openLinks.test.ts    # 19 tests: batching, history, retry, tab group fallback
+│   │   ├── openLinks.test.ts    # 28 tests: batching, history, retry, tab group fallback
 │   │   ├── urls.ts              # Parser pipeline, cleaner & domain counter
 │   │   ├── urls.test.ts         # 19 parser unit tests (parens, markdown, edge cases)
 │   │   ├── shorten.ts           # Multi-provider fallback shortener & batch queue
@@ -370,6 +391,7 @@ url-link-counter/
 │   ├── main.tsx                 # Application entrypoint & MotionConfig setup
 │   ├── index.css                # Tailwind base styles, theme variables, grid & glow
 │   └── vite-env.d.ts            # Vite environment types
+├── CONTEXT.md                   # Ubiquitous domain language & architecture model
 ├── package.json                 # Project scripts & dependencies
 ├── package-lock.json            # Deterministic lockfile (npm standard)
 ├── tailwind.config.js           # Tailwind configuration (dark mode, typography)
@@ -398,12 +420,17 @@ git checkout Chatgpt
 1. **ระบบเปิดลิงก์พร้อมกันแบบแบ่งชุด (Batch Link Opener)**
    - กำหนดจำนวนเปิดต่อครั้งได้: **10**, **20**, **30**, **50** ลิงก์ หรือเลือก **Custom** (ระบุเองได้ 1–100)
    - **Internal Batch Naming**: แบ่งชุดเป็นลำดับชัดเจน เช่น `Batch 1 of 8 (Links 1–10)`, `Batch 2 of 8 (Links 11–20)`
-   - **Session Batch History**: บันทึกประวัติการเปิดในเซสชัน กดคลี่ดูรายละเอียดได้ว่าเปิดชุดไหนไปแล้วบ้าง
+   - **Session Batch History with In-Place Updates**: บันทึกประวัติการเปิดในเซสชัน (`✓ Batch 1: Links 1–10 (10 opened · 0 blocked)` vs `⚠ Batch 1: Links 1–10 (6 opened · 4 blocked)`) โดยเมื่อ Retry สำเร็จจะอัปเดตรายการเดิมทันที ไม่สร้างประวัติซ้ำซ้อน
    - มีปุ่ม `Reset` เริ่มต้นนับ URL และประวัติใหม่ได้ตลอดเวลา
    - ปลอดภัย: เปิดเฉพาะ URL ที่ถูกต้อง (Valid) เท่านั้น ข้าม Invalid อัตโนมัติ
    - **โหมด Total URLs (ค่าเริ่มต้น)**: เปิดทุกลิงก์ตามลำดับในเอกสารต้นฉบับ หรือเลือก **Unique URLs** เพื่อเปิดเฉพาะลิงก์ไม่ซ้ำ
    - เลือกระหว่าง **Current results** (เปิดเฉพาะที่กำลัง filter/ค้นหา) หรือ **All valid URLs**
-   - **ตรวจจับ Popup Blocker พร้อมปุ่ม Retry**: หากบางแท็บถูกบล็อก จะแจ้งเตือนจำนวนจริง พร้อมปุ่ม **`[ ↺ Retry {N} blocked ]`** ให้กดเปิดต่อเฉพาะแท็บที่ค้างอยู่ได้ทันที โดยไม่ข้ามและไม่เปิดซ้ำแท็บเดิม
+   - **ตรวจจับ Popup Blocker และปุ่ม Retry เฉพาะกิจ**:
+     - ใช้เทคนิค `window.open('', '_blank')` แล้วจึง `location.replace` ป้องกันการเกิด False Positive บล็อกหลอก
+     - ตัดสิทธิ์ `opener = null` ป้องกัน Reverse-Tabnabbing
+     - บล็อกปุ่ม `Open next` ชั่วคราวเมื่อมีแท็บค้างบล็อก เพื่อป้องกัน Cursor ทับซ้อน
+     - มีปุ่ม **`[ ↺ Retry {N} blocked ]`** เพื่อกดเปิดต่อเฉพาะรายการที่ค้างบล็อกจริง
+   - **Whole-List Reset Signature**: ตรวจจับการเปลี่ยนแปลงของ URL ทั้งหมด (รวมถึงตัวกลางรายการ `A, B, C` ➔ `A, X, C`) หรือการเปลี่ยนขนาด Batch (10 ➔ 20) เพื่อ Reset ความคืบหน้าอย่างถูกต้อง ป้องกันการเปิดแท็บผิดช่วง
    - มีหน้าต่างแจ้งเตือนยืนยัน (Confirmation Dialog) เมื่อเปิดตั้งแต่ **30 แท็บขึ้นไป** หรือเมื่อกด **Open all remaining** เพื่อความปลอดภัยของหน่วยความจำเครื่อง
 
 2. **สถาปัตยกรรม Tab Groups & Progressive Enhancement**
