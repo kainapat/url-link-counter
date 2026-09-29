@@ -5,7 +5,7 @@
 ### Paste links. See what is actually there.
 
 A blazing-fast, privacy-first URL inspector, counter, filter, batch opener, shortener, and exporter.<br/>
-Accurately dissects complex pasted text and Markdown without ever mutating your source list.
+Crafted with a modern developer-utility aesthetic inspired by Linear, Raycast, and Vercel.
 
 [![React 18](https://img.shields.io/badge/React-18.3-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -13,9 +13,11 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 [![Tailwind CSS 3](https://img.shields.io/badge/Tailwind-3.4-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Vitest](https://img.shields.io/badge/Vitest-60_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Radix UI](https://img.shields.io/badge/Radix_UI-Primitives-black?style=for-the-badge&logo=radixui&logoColor=white)](https://www.radix-ui.com/)
+[![Sonner](https://img.shields.io/badge/Sonner-Toaster-black?style=for-the-badge&logo=sonner&logoColor=white)](https://sonner.emilkowal.ski/)
 [![Motion](https://img.shields.io/badge/Motion-12-ff0055?style=for-the-badge&logo=framer&logoColor=white)](https://motion.dev/)
 
 [✨ Key Features](#-key-features) •
+[🎨 Workspace Design](#-workspace-design--ui) •
 [🚀 Batch Link Opener](#-batch-link-opener) •
 [🛡️ Hardened Popup Detection & Recovery](#️-hardened-popup-detection--recovery) •
 [📑 Tab Groups & Progressive Enhancement](#-tab-groups--progressive-enhancement) •
@@ -34,42 +36,42 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│  🔗 Linkcount    URL utility, without the clutter           [ ☀️ / 🌙 ] [ GitHub ]│
+│  🔗 Linkcount    URL workspace utility                      [ ☀️ / 🌙 ] [ GitHub ]│
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
-│   Analyze URLs                                                                   │
-│   Paste links. See what is actually there.                                       │
+│   URL Workspace                                                                  │
+│   Paste, inspect, deduplicate, shorten, and open links in sequential batches.   │
 │                                                                                  │
-│  ┌──────────────────────────────────────────────┐  ┌──────────────────────────┐  │
-│  │ URLs or text containing URLs                 │  │ TOTAL URLS            73 │  │
-│  │                                              │  ├──────────────────────────┤  │
-│  │  https://github.com/kainapat/url-link-counter│  │ UNIQUE                71 │  │
-│  │  [Documentation](https://vite.dev/guide/)    │  ├──────────────────────────┤  │
-│  │  Check out: <https://tailwindcss.com>        │  │ DUPLICATES             2 │  │
-│  │                                              │  ├──────────────────────────┤  │
-│  │                                              │  │ DOMAINS               18 │  │
-│  │                                              │  ├──────────────────────────┤  │
-│  │ [Clear]        Duplicate links are badged.   │  │ INVALID                0 │  │
-│  └──────────────────────────────────────────────┘  └──────────────────────────┘  │
-│                                                                                  │
-│  ┌─ Domains ──────────────────────────────────────────────────────────────────┐  │
-│  │  github.com (24)  •  vite.dev (12)  •  tailwindcss.com (8)   [Show all...] │  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Paste anything here — Markdown [links](https://...), <https://...>, raw... │  │
+│  │                                                                            │  │
+│  │ https://github.com/kainapat/url-link-counter                               │  │
+│  │ https://vite.dev/guide/                                                    │  │
+│  │                                                                            │  │
+│  │ Source integrity: links are detected and counted, never modified.  [Clear] │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  ┌─ 73 Total URLs ──┬─ 71 Unique ──┬─ 2 Duplicates ─┬─ 18 Domains ─┬─ 0 Invalid ┐│
+│  └──────────────────┴──────────────┴────────────────┴──────────────┴─────────────┘│
 │                                                                                  │
 │  ┌─ Results (73 links) ─ [ Mode: Total URLs | Unique ] ─ [ Search... ] [All ▾] ─┐  │
 │  │  [📋 Copy all]  [📥 TXT]  [📊 CSV]  [✂️ Shorten all]  [📋 Copy shortened (73)] │  │
 │  ├────────────────────────────────────────────────────────────────────────────┤  │
 │  │  OPEN LINKS IN BATCH                             [ Batch 2 of 8 ]          │  │
 │  │                                                                            │  │
+│  │  10 / 73 opened (Next: 11–20)                                          14% │  │
+│  │  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │  │
+│  │                                                                            │  │
 │  │  Open per batch: [ 10 links ▼ ]   Scope: [ Current ▼ ]   Duplicates: [Total ▼]
 │  │                                                                            │  │
 │  │  [ ↗ Open next 10 ]  [ ↺ Reset ]             [ ⏱ 1 batch opened ▾ ]        │  │
-│  │                                                                            │  │
-│  │  10 / 73 opened (Next: 11–20) • Scope: Current • Duplicates: Total URLs    │  │
 │  ├────────────────────────────────────────────────────────────────────────────┤  │
-│  │  #1  https://github.com/kainapat...    github.com     [Valid]   [📋] [✂️]    │  │
-│  │  #2  https://github.com/kainapat...    github.com     [Valid] [Duplicate]    │  │
-│  │  #3  https://en.wikipedia.org/wiki/URL_(disambiguation)                      │  │
+│  │  #1  github.com    [Valid]                                                 │  │
+│  │      https://github.com/kainapat/url-link-counter         [📋] [✂️] [↗]    │  │
+│  │  #2  github.com    [Valid] [Duplicate]                                     │  │
+│  │      https://github.com/kainapat/url-link-counter         [📋] [✂️] [↗]    │  │
+│  │  #3  wikipedia.org [Valid]                                                 │  │
+│  │      https://en.wikipedia.org/wiki/URL_(disambiguation)   [📋] [✂️] [↗]    │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -78,8 +80,16 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 
 ## ✨ Key Features
 
+### 🎨 Workspace Design System
+- **Unified Productivity Surface**: Replaces card-after-card clutter with a sleek, border-delimited workspace inspired by Linear, Raycast, and Vercel.
+- **Compact Reactive StatsBar**: Numbers are prominently emphasized with subtle entry transitions (`StatsBar`), eliminating bulky stat cards.
+- **Animated Segmented Tabs**: Seamless sliding pill indicator powered by `motion/react` layout springs for instant switching between **Total URLs** and **Unique URLs**.
+- **Contextual Action Notifications**: Zero-shift transient feedback with **Sonner** (`Copied to clipboard`, `10 links opened`, `Batch shortening complete`).
+- **Desktop Pointer Spotlight**: Subtle mouse-following radial light on desktop viewports that automatically disables on mobile, touchscreens, and when `prefers-reduced-motion` is active.
+
 ### 🚀 Batch Link Opener
 - **Smart Paging**: Open links in customizable chunks (**10**, **20**, **30**, **50**, or **Custom 1–100**).
+- **Fluid Spring Progress Bar**: Visual progress indicator that smoothly animates with spring physics on every opened batch.
 - **Internal Batch Naming**: Automatically organizes links into clear numbered groups (**Batch 1**, **Batch 2**, etc., e.g. `Batch 2 of 8 (Links 11–20)`).
 - **Open All Remaining Action**: Opens remaining links in a single operation while maintaining clear identity (**`Remaining: Links 21–73`** instead of resetting to `Batch 1`).
 - **Session Batch History with In-Place Updates**: Real-time expandable drawer logging every opened batch (`✓ Batch 1: Links 1–10 (10 opened · 0 blocked)` vs `⚠ Batch 1: Links 1–10 (6 opened · 4 blocked)`). Retries update existing batch entries in place rather than creating duplicate logs.
@@ -114,8 +124,8 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 - **Document Order Preserved**: Retains the exact appearance order from the original text.
 
 ### 📊 Real-Time Analytics & Filtering
-- **Reactive Stat Cards**: Instant feedback for **Total URLs**, **Unique**, **Duplicates**, **Domains**, and **Invalid** URLs.
-- **Per-Domain Breakdown**: Displays top 5 domains with instant count pills + expandable drawer for the rest. Click any domain to immediately filter the result list.
+- **Compact Stats Bar**: Instant feedback for **Total URLs**, **Unique**, **Duplicates**, **Domains**, and **Invalid** URLs.
+- **Top Domain Quick Filters**: Displays top 5 domains with instant count pills. Click any domain to immediately filter the result list.
 - **Instant Search & Type Filter**: Fast client-side search across URLs and domains, plus dropdown filters (`All`, `Valid`, `Invalid`, `Duplicate`).
 - **Non-Destructive Integrity**: Duplicate links are prominently badged in amber—**never silently discarded or mutated**.
 
@@ -125,7 +135,6 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 - **Isolated Run Tokens**: Separates batch runs (`batchRun`) and per-URL operations (`singleRuns`), preventing single-link actions from cancelling batch operations or hanging states.
 - **Deduplicated Network Calls with Mapped Output**: Requests each distinct URL only once to avoid API rate limits, while mapping results back onto all occurrences in document order for Total URLs mode.
 - **Failure Isolation**: An error on one URL never breaks the batch. Each link independently tracks `waiting` ➔ `shortening` ➔ `done` / `failed`.
-- **Accessible Live Progress**: Displays dynamic visual counts (`Shortening 14/50`) paired with an `aria-live="polite"` screen-reader announcer.
 
 ### 💾 Export & Clipboard
 - **Universal Clipboard**: Copy any individual URL, copy all original links, or copy all successfully shortened links in one click (includes automatic textarea fallback for restricted browser environments).
@@ -137,6 +146,20 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 - **Smooth Micro-Interactions**: Powered by `motion/react` spring physics (120–220ms), fully respecting `prefers-reduced-motion: reduce`.
 - **Accessible Dialogs & Tooltips**: Built with WAI-ARIA compliant Radix UI primitives (`@radix-ui/react-alert-dialog`, `@radix-ui/react-tooltip`) with full keyboard navigation and focus trapping.
 - **Mobile & Tablet First**: Custom stacked layouts with touch targets ≥ 44px and verified zero horizontal overflow on all screen sizes.
+
+---
+
+## 🎨 Workspace Design System
+
+Linkcount's visual design embraces a clean, purposeful developer-utility ethos:
+
+| Principle | Implementation |
+|---|---|
+| **No Card-Stacking Clutter** | Sections are visually anchored through clean borders, subtle surface levels, and balanced spacing scales. |
+| **Typography Scale** | Page Title (`28–36px font-bold`), Section Headers (`15–18px font-semibold`), Monospace Data (`13–14px font-mono`), Metadata (`11–12px font-medium`). |
+| **Motion Physics** | Controlled springs and gentle tweens (120–220ms); list staggering disables automatically when URLs exceed 40 items. |
+| **Subtle Desktop Spotlight** | Desktop pointer coordinates update CSS variables through `requestAnimationFrame` for a faint radial highlight. |
+| **Sonner Feedback** | Transient toast feedback at `bottom-right` (desktop) and `bottom-center` (mobile) avoiding layout shifts. |
 
 ---
 
@@ -206,32 +229,6 @@ export interface TabGroupBridge {
 
 In standard web browsers, `defaultTabGroupBridge` accurately returns `capability: 'unavailable'`. Linkcount never fabricates fake tab group statuses.
 
-### 🔮 Future Extension Roadmap
-
-A companion **Linkcount Browser Extension** can be integrated in the future for Chromium desktop environments without altering web core code:
-
-```text
-┌──────────────┐     Select 20 URLs     ┌───────────────────────┐
-│  Linkcount   ├───────────────────────►│  Browser Extension   │
-└──────────────┘                        └──────────┬────────────┘
-                                                   │
-                                                   ▼
-                                        ┌───────────────────────┐
-                                        │  chrome.tabs.create() │
-                                        └──────────┬────────────┘
-                                                   │
-                                                   ▼
-                                        ┌───────────────────────┐
-                                        │  chrome.tabs.group()  │
-                                        └──────────┬────────────┘
-                                                   │
-                                                   ▼
-                                        ┌────────────────────────┐
-                                        │ chrome.tabGroups.update│
-                                        │ Name: "Batch 1" / Color│
-                                        └────────────────────────┘
-```
-
 ---
 
 ## 📱 Mobile & Tablet First
@@ -243,6 +240,7 @@ Linkcount is designed from the ground up for phones and tablets (Android, iPad, 
 - **Responsive Viewport Verification**: Exhaustively verified with automated headless browsers across:
   - `320px` (Compact Mobile)
   - `375px` (Standard iPhone)
+  - `390px` (Modern iPhone Pro)
   - `430px` (Modern Large Phone)
   - `768px` (iPad / Tablet Portrait)
   - `1024px` (Tablet Landscape / Laptop)
@@ -279,35 +277,11 @@ flowchart TD
 | `https://example.com/search?q=a,b&page=1` | `https://example.com/search?q=a,b&page=1` | Query strings and commas preserved |
 | `Visit example.com today` | *(ignored)* | Scheme-less text is never guessed |
 
-> 🛡️ **Cleaner Invariant**: Linkcount never unconditionally strips `; : ! ?`, never decodes or re-encodes query components, never trims trailing slashes, and never alters `http` ↔ `https`.
-
 ---
 
 ## ⚡ Multi-Provider URL Shortener
 
 Network requests are managed by an asynchronous worker pool with automatic retry fallbacks (`src/lib/shorten.ts`):
-
-```text
- ┌────────────────┐
- │  Link to Short │
- └───────┬────────┘
-         │
-         ▼
- ┌───────────────┐      CORS / Error
- │   TinyURL     ├──────────────────────┐
- └───────┬───────┘                      │
-         │ HTTP 200                     ▼
-         │                      ┌───────────────┐      CORS / Error
-         │                      │     da.gd     ├─────────────────────┐
-         │                      └───────┬───────┘                     │
-         │                              │ HTTP 200                    ▼
-         │                              │                     ┌───────────────┐
-         │                              │                     │     is.gd     │
-         ▼                              ▼                     └───────┬───────┘
- ┌─────────────────────────────────────────────────────────────┐      │ HTTP 200
- │                  Shortened URL Verified                     │◄─────┘
- └─────────────────────────────────────────────────────────────┘
-```
 
 - **TinyURL**: Primary shortener service.
 - **da.gd**: Primary CORS-enabled fallback (`Access-Control-Allow-Origin: *`).
@@ -324,8 +298,9 @@ Network requests are managed by an asynchronous worker pool with automatic retry
 | **Core** | [React 18](https://react.dev/) | Component architecture & declarative state |
 | **Language** | [TypeScript 5](https://www.typescriptlang.org/) | Strict typing, robust parser models |
 | **Build Tool** | [Vite 6](https://vite.dev/) | Lightning-fast HMR and optimized production bundles |
-| **Styling** | [Tailwind CSS 3](https://tailwindcss.com/) | Responsive design & dark mode utility classes |
+| **Styling** | [Tailwind CSS 3](https://tailwindcss.com/) | Responsive utility design & dark mode |
 | **Animation** | [Motion](https://motion.dev/) | Spring transitions with reduced-motion support |
+| **Toast** | [Sonner](https://sonner.emilkowal.ski/) | Opinionated, modern toast notifications |
 | **Icons** | [Lucide React](https://lucide.dev/) | Clean, accessible SVG iconography |
 | **Primitives** | [Radix UI](https://www.radix-ui.com/) | Accessible dialogs (`AlertDialog`) & tooltips (`Tooltip`) |
 | **Testing** | [Vitest](https://vitest.dev/) | 60 comprehensive unit, concurrency & batch opener tests |
@@ -385,8 +360,16 @@ npm run preview
 url-link-counter/
 ├── src/
 │   ├── components/
-│   │   └── OpenLinksControl.tsx # Mobile-first batch opener UI, presets, history & retry
+│   │   ├── AppHeader.tsx        # Sticky top header, minimal glyph, theme toggle, GitHub
+│   │   ├── UrlWorkspace.tsx     # Input area, source integrity note, clear action, domain pills
+│   │   ├── StatsBar.tsx         # Compact stats bar with animated numbers
+│   │   ├── ResultsToolbar.tsx   # Segmented mode switcher, search, filter, bulk export
+│   │   ├── OpenLinksControl.tsx # Batch opener UI with fluid spring progress bar & presets
+│   │   ├── BlockedAlert.tsx     # Popup blocked notification with inline retry action
+│   │   ├── BatchHistory.tsx     # Collapsible session batch history with status badges
+│   │   └── ResultRow.tsx        # Individual URL row with copy, shorten, open actions
 │   ├── lib/
+│   │   ├── utils.ts             # Tailwind class merging utility (cn)
 │   │   ├── tabGroups.ts         # Progressive enhancement contract & web fallback
 │   │   ├── openLinks.ts         # Pure batching logic, validation, history & opener engine
 │   │   ├── openLinks.test.ts    # 34 tests: batching, history, retry, tab group fallback
@@ -394,7 +377,7 @@ url-link-counter/
 │   │   ├── urls.test.ts         # 19 parser unit tests (parens, markdown, edge cases)
 │   │   ├── shorten.ts           # Multi-provider fallback shortener & batch queue
 │   │   └── shorten.test.ts      # 7 tests: concurrency, token isolation & total mapping
-│   ├── App.tsx                  # Main UI: input, analytics, results, bulk actions & mode toggle
+│   ├── App.tsx                  # Main workspace view & state coordinator
 │   ├── main.tsx                 # Application entrypoint & MotionConfig setup
 │   ├── index.css                # Tailwind base styles, theme variables, grid & glow
 │   └── vite-env.d.ts            # Vite environment types
@@ -423,61 +406,41 @@ git checkout Chatgpt
 
 **Linkcount** คือเว็บแอปพลิเคชันสำหรับวิเคราะห์ ตรวจนับ คัดกรอง เปิดลิงก์แบบแบ่งชุด (Batch Opener) ย่อลิงก์ และส่งออก URL จากข้อความใดๆ ได้อย่างแม่นยำ รวดเร็ว และปลอดภัย โดยทำงานบนเบราว์เซอร์ 100% ไม่มีการบันทึกหรือเปลี่ยนแปลงข้อความต้นฉบับของคุณ
 
-### จุดเด่นที่สำคัญ
-1. **ระบบเปิดลิงก์พร้อมกันแบบแบ่งชุด (Batch Link Opener)**
+### จุดเด่นที่สำคัญหลังการ Redesign
+1. **ดีไซน์ใหม่สไตล์ Developer Utility Workspace**
+   - ได้รับแรงบันดาลใจจากเครื่องมือชั้นนำอย่าง Linear, Raycast และ Vercel ลดความเกะกะของ Card กล่องสี่เหลี่ยมหลายชั้น ให้กลายเป็น Workspace ชิ้นเดียวที่ลื่นไหล
+   - มี Desktop Pointer Spotlight ละเอียดอ่อนตามการขยับเมาส์
+   - ระบบแจ้งเตือน Action ด้วย **Sonner Toast** สวยงาม รวดเร็ว ไม่เลื่อน Layout
+   - แถบสถิติแบบกระชับ (`StatsBar`) ตัวเลขเด่นชัดพร้อมแอนิเมชันตัวเลขเมื่อค่าเปลี่ยน
+   - ตัวสลับโหมด `Total URLs` และ `Unique URLs` แบบ Segmented Control มีแถบ Active สไลด์นุ่มนวล
+
+2. **ระบบเปิดลิงก์พร้อมกันแบบแบ่งชุด (Batch Link Opener)**
+   - หลอด Progress Bar เคลื่อนไหวลื่นไหลด้วย Motion Spring
    - กำหนดจำนวนเปิดต่อครั้งได้: **10**, **20**, **30**, **50** ลิงก์ หรือเลือก **Custom** (ระบุเองได้ 1–100)
    - **Internal Batch Naming**: แบ่งชุดเป็นลำดับชัดเจน เช่น `Batch 1 of 8 (Links 1–10)`, `Batch 2 of 8 (Links 11–20)`
    - **Open All Remaining Action**: รองรับการเปิดลิงก์ที่เหลือทั้งหมดในคลิกเดียว โดยบันทึกชื่อในประวัติเป็น **`Remaining`** ชัดเจน (เช่น `Remaining: Links 21–73`) ไม่ย้อนกลับไปตั้งชื่อผิดเป็น `Batch 1`
    - **Session Batch History with In-Place Updates**: บันทึกประวัติการเปิดในเซสชัน (`✓ Batch 1: Links 1–10 (10 opened · 0 blocked)` vs `⚠ Batch 1: Links 1–10 (6 opened · 4 blocked)`) โดยเมื่อ Retry สำเร็จจะอัปเดตรายการเดิมทันที ไม่สร้างประวัติซ้ำซ้อน
    - **ซ่อนแถว Next Batch อัตโนมัติเมื่อมีแท็บค้างบล็อก**: ระบบจะไม่แสดงช่วงถัดไปจนกว่าจะเคลียร์แท็บที่ถูกบล็อกสำเร็จ ป้องกันการสับสนและป้องกันการเปิดแท็บซ้ำซ้อน
-   - มีปุ่ม `Reset` เริ่มต้นนับ URL และประวัติใหม่ได้ตลอดเวลา
-   - ปลอดภัย: เปิดเฉพาะ URL ที่ถูกต้อง (Valid) เท่านั้น ข้าม Invalid อัตโนมัติ
    - **โหมด Total URLs (ค่าเริ่มต้น)**: เปิดทุกลิงก์ตามลำดับในเอกสารต้นฉบับ หรือเลือก **Unique URLs** เพื่อเปิดเฉพาะลิงก์ไม่ซ้ำ
-   - เลือกระหว่าง **Current results** (เปิดเฉพาะที่กำลัง filter/ค้นหา) หรือ **All valid URLs**
-   - **ตรวจจับ Popup Blocker และปุ่ม Retry เฉพาะกิจ**:
-     - ใช้เทคนิค `window.open('', '_blank')` แล้วจึง `location.replace` ป้องกันการเกิด False Positive บล็อกหลอก
-     - ตัดสิทธิ์ `opener = null` ป้องกัน Reverse-Tabnabbing
-     - บล็อกปุ่ม `Open next` และ `Open all remaining` ชั่วคราวเมื่อมีแท็บค้างบล็อก เพื่อป้องกัน Cursor ทับซ้อน
-     - มีปุ่ม **`[ ↺ Retry {N} blocked ]`** เพื่อกดเปิดต่อเฉพาะรายการที่ค้างบล็อกจริง
-   - **Whole-List Reset Signature**: ตรวจจับการเปลี่ยนแปลงของ URL ทั้งหมด (รวมถึงตัวกลางรายการ `A, B, C` ➔ `A, X, C`) หรือการเปลี่ยนขนาด Batch (10 ➔ 20) เพื่อ Reset ความคืบหน้าอย่างถูกต้อง ป้องกันการเปิดแท็บผิดช่วง
-   - มีหน้าต่างแจ้งเตือนยืนยัน (Confirmation Dialog) เมื่อเปิดตั้งแต่ **30 แท็บขึ้นไป** หรือเมื่อกด **Open all remaining** เพื่อความปลอดภัยของหน่วยความจำเครื่อง
 
-2. **สถาปัตยกรรม Tab Groups & Progressive Enhancement**
+3. **ตรวจจับ Popup Blocker และปุ่ม Retry เฉพาะกิจ**
+   - ใช้เทคนิค `window.open('', '_blank')` แล้วจึง `location.replace` ป้องกันการเกิด False Positive บล็อกหลอก
+   - ตัดสิทธิ์ `opener = null` ป้องกัน Reverse-Tabnabbing
+   - บล็อกปุ่ม `Open next` และ `Open all remaining` ชั่วคราวเมื่อมีแท็บค้างบล็อก เพื่อป้องกัน Cursor ทับซ้อน
+   - มีปุ่ม **`[ ↺ Retry {N} blocked ]`** เพื่อกดเปิดต่อเฉพาะรายการที่ค้างบล็อกจริง
+
+4. **สถาปัตยกรรม Tab Groups & Progressive Enhancement**
    - หน้าเว็บทั่วไปไม่มีสิทธิ์เข้าถึง `chrome.tabs.group()` ซึ่งเป็นสิทธิ์เฉพาะของ Browser Extension
    - Linkcount ออกแบบด้วยระบบ **Progressive Enhancement** ผ่าน Interface `TabGroupBridge` โดยกำหนดค่า Web เริ่มต้นเป็น `unavailable` ไม่มีการแกล้งทำหรือหลอกผู้ใช้
-   - มีแนวทางสำหรับพัฒนา **Linkcount Browser Extension** ในอนาคตเพื่อรองรับการจัด Tab Groups แบบอัตโนมัติบน Chromium Desktop
 
-3. **ออกแบบ Mobile & Tablet First**
+5. **ออกแบบ Mobile & Tablet First**
    - ออกแบบสำหรับหน้าจอมือถือและแท็บเล็ตเป็นสำคัญ คอนโทรลจัดวางแบบ Stacked Grid สะอาดตา
    - ปุ่มและตัวเลือกทุกชิ้นมีขนาดสัมผัสไม่ต่ำกว่า 44px (`min-h-11`)
    - ผ่านการทดสอบบน Viewport ตั้งแต่ **320px ถึง 1440px** ปราศจากปัญหาแถบเลื่อนแนวนอน (Zero Horizontal Overflow)
 
-4. **แกะและแยกแยะ URL แม่นยำสูง (Precision Parser)**
-   - รองรับรูปแบบ Markdown: `[ข้อความ](https://target.com)` โดยจะนับเฉพาะ URL ปลายทางเท่านั้น
-   - รองรับ Autolink ในรูปแบบ `<https://example.com>`
-   - ตัดเครื่องหมายวรรคตอนภายนอกอัตโนมัติ เช่น `(https://example.com)` หรือ `"https://example.com"` โดยยังคงรักษาวงเล็บที่เป็นส่วนหนึ่งของ URL ไว้ได้สมบูรณ์ (เช่น ลิงก์ Wikipedia)
-   - ไม่มีการเดา URL ที่ไม่มี scheme (`http://` หรือ `https://`) เพื่อป้องกันข้อมูลผิดพลาด
-
-5. **สถิติและการวิเคราะห์ทันที (Real-Time Stats)**
-   - สรุปตัวเลขอัตโนมัติ: ลิงก์ทั้งหมด (Total), ลิงก์ที่ไม่ซ้ำ (Unique), ลิงก์ซ้ำ (Duplicates), จำนวนโดเมน (Domains) และลิงก์ที่ไม่ถูกต้อง (Invalid)
-   - สรุปโดเมนยอดนิยม 5 อันดับแรก พร้อมปุ่มเปิดดูโดเมนทั้งหมด และคลิกเพื่อค้นหาได้ทันที
-   - ค้นหา (Search) และกรอง (Filter) ตามสถานะ: ทั้งหมด / ใช้ได้ / ไม่ถูกต้อง / ลิงก์ซ้ำ
-
-6. **ระบบย่อลิงก์อัจฉริยะ (Multi-Provider Shortener)**
-   - ทำงานแบบ Fallback อัตโนมัติ: **TinyURL** ➔ **da.gd** ➔ **is.gd**
-   - ควบคุมการส่งคำขอพร้อมกันสูงสุด 5 คำขอ (`concurrency: 5`) ไม่ทำให้เบราว์เซอร์ค้าง
-   - แยก token อิสระระหว่างย่อรายตัว (`singleRuns`) และย่อทั้งหมด (`batchRun`) ป้องกันการกวนสถานะกัน
-   - ย่อเฉพาะลิงก์ไม่ซ้ำเพื่อประหยัดโควตา API แต่ map ผลลัพธ์กลับสู่ลำดับต้นฉบับครบตาม Total URLs
-   - ดูความคืบหน้าแบบสด (เช่น `Shortening 14/50`) และคัดลอกลิงก์ที่ย่อแล้วทั้งหมดได้ในคลิกเดียว
-
-7. **การส่งออกและคัดลอก (Export & Copy)**
-   - คัดลอกแบบแยกรายแถว หรือคัดลอกทั้งหมด
-   - ส่งออกเป็นไฟล์ **CSV** (พร้อม UTF-8 BOM สำหรับเปิดใน Excel ได้ภาษาไทยไม่เพี้ยน) และไฟล์ข้อความ **TXT**
-
-8. **ดีไซน์สวยงามและเข้าถึงง่าย (UI & Accessibility)**
-   - รองรับโหมดมืด (Dark Mode) และโหมดสว่าง (Light Mode) จดจำค่าผ่าน `localStorage`
-   - แอนิเมชันลื่นไหลด้วย `Motion` พร้อมรองรับ `prefers-reduced-motion`
-   - ใช้ Radix UI Dialog และ Tooltip พร้อมระบบ Focus Trapping สำหรับการควบคุมด้วยคีย์บอร์ด
+6. **โครงสร้างโค้ดแบบ Modular (Clean Architecture)**
+   - แยกหน้าที่ชัดเจนระหว่าง Business Logic ใน `src/lib/` และ Presentation Components ใน `src/components/`
+   - ผ่านการทดสอบ Unit Tests ทั้งหมด 60 รายการ ผ่านครบ 100%
 
 ---
 
