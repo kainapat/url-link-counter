@@ -103,13 +103,13 @@ Linkcount uses a deterministic, multi-stage parser engine (`src/lib/urls.ts`):
 
 ```mermaid
 flowchart TD
-    A[Raw Input Text] --> B[Pass 1: Extract Markdown Links [label]\(url\)]
-    B --> C[Pass 2: Extract Autolinks <http(s)://...>]
-    C --> D[Pass 3: Extract Plain http(s):// URLs from unconsumed ranges]
-    D --> E[Pass 4: Balanced-Aware Cleaner]
-    E --> F[Pass 5: URL Validation & Host Normalization]
-    F --> G[Pass 6: Duplicate & Domain Aggregation]
-    G --> H[Final Structured UrlItem Stream]
+    A["Raw Input Text"] --> B["Pass 1: Extract Markdown Links [label](url)"]
+    B --> C["Pass 2: Extract Autolinks &lt;http(s)://...&gt;"]
+    C --> D["Pass 3: Extract Plain http(s):// URLs from unconsumed ranges"]
+    D --> E["Pass 4: Balanced-Aware Cleaner"]
+    E --> F["Pass 5: URL Validation & Host Normalization"]
+    F --> G["Pass 6: Duplicate & Domain Aggregation"]
+    G --> H["Final Structured UrlItem Stream"]
 ```
 
 ### Parsing Rules & Edge Cases
