@@ -9,6 +9,7 @@ import {
   getOpenableUrls,
   openUrlBatch,
   parseCustomBatchSize,
+  shouldShowNextBatch,
   updateBatchHistoryItem,
   type BatchHistoryItem,
 } from './openLinks'
@@ -482,6 +483,8 @@ describe('openLinks: updateBatchHistoryItem in place', () => {
       openedUrls: ['https://a.com/1', 'https://a.com/2', 'https://a.com/3', 'https://a.com/4', 'https://a.com/5', 'https://a.com/6'],
       blockedUrls: ['https://a.com/7', 'https://a.com/8', 'https://a.com/9', 'https://a.com/10'],
       status: 'partial',
+      actionType: 'batch',
+      label: 'Batch 1',
       timestamp: 1000,
     }
 
@@ -569,5 +572,118 @@ describe('openLinks: Total URLs default validation', () => {
     })
     expect(uniqueUrls).toHaveLength(2)
     expect(uniqueUrls).toEqual(['https://a.com', 'https://b.com'])
+  })
+})
+
+describe('openLinks: shouldShowNextBatch', () => {
+  it('returns false when hasBlockedNotice is true even if URLs remain', () => {
+    expect(
+      shouldShowNextBatch({
+        isComplete: false,
+        hasBlockedNotice: true,
+        remainingUrlsCount: 14,
+      }),
+    ).toBe(false)
+  })
+
+  it('returns false when isComplete is true', () => {
+    expect(
+      shouldShowNextBatch({
+        isComplete: true,
+        hasBlockedNotice: false,
+        remainingUrlsCount: 0,
+      }),
+    ).toBe(false)
+  })
+
+  it('returns false when remainingUrlsCount is 0', () => {
+    expect(
+      shouldShowNextBatch({
+        isComplete: false,
+        hasBlockedNotice: false,
+        remainingUrlsCount: 0,
+      }),
+    ).toBe(false)
+  })
+
+  it('returns true when not complete, no blocked notice, and remaining URLs exist', () => {
+    expect(
+      shouldShowNextBatch({
+        isComplete: false,
+        hasBlockedNotice: false,
+        remainingUrlsCount: 10,
+      }),
+    ).toBe(true)
+  })
+})
+
+describe('openLinks: Open All Remaining batch identity and retry flow', () => {
+  it('assigns correct Remaining label and sequence when opening remainder (21–73 of 73)', () => {
+    const remainingResult = {
+      requested: 53,
+      opened: 53,
+      blocked: 0,
+      openedUrls: Array.from({ length: 53 }, (_, i) => `https://example.com/${i + 21}`),
+      blockedUrls: [],
+    }
+
+    const historyItem = createBatchHistoryItem({
+      batchNumber: 3,
+      displayStart: 21,
+      displayEnd: 73,
+      result: remainingResult,
+      actionType: 'remaining',
+    })
+
+    expect(historyItem.actionType).toBe('remaining')
+    expect(historyItem.label).toBe('Remaining')
+    expect(historyItem.batchNumber).toBe(3)
+    expect(historyItem.displayStart).toBe(21)
+    expect(historyItem.displayEnd).toBe(73)
+    expect(historyItem.requested).toBe(53)
+    expect(historyItem.opened).toBe(53)
+    expect(historyItem.blocked).toBe(0)
+    expect(historyItem.status).toBe('complete')
+  })
+
+  it('handles partial block and in-place retry update on Remaining action (53 requested: 40 opened, 13 blocked -> retry 13)', () => {
+    const initialPartial = {
+      requested: 53,
+      opened: 40,
+      blocked: 13,
+      openedUrls: Array.from({ length: 40 }, (_, i) => `https://example.com/${i + 21}`),
+      blockedUrls: Array.from({ length: 13 }, (_, i) => `https://example.com/${i + 61}`),
+    }
+
+    const item = createBatchHistoryItem({
+      batchNumber: 3,
+      displayStart: 21,
+      displayEnd: 73,
+      result: initialPartial,
+      actionType: 'remaining',
+    })
+
+    expect(item.status).toBe('partial')
+    expect(item.label).toBe('Remaining')
+    expect(item.opened).toBe(40)
+    expect(item.blocked).toBe(13)
+
+    // Retry 13 successfully
+    const retryResult = {
+      requested: 13,
+      opened: 13,
+      blocked: 0,
+      openedUrls: Array.from({ length: 13 }, (_, i) => `https://example.com/${i + 61}`),
+      blockedUrls: [],
+    }
+
+    const updated = updateBatchHistoryItem(item, retryResult)
+    expect(updated.actionType).toBe('remaining')
+    expect(updated.label).toBe('Remaining')
+    expect(updated.displayStart).toBe(21)
+    expect(updated.displayEnd).toBe(73)
+    expect(updated.opened).toBe(53)
+    expect(updated.blocked).toBe(0)
+    expect(updated.status).toBe('complete')
   })
 })

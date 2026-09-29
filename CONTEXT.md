@@ -85,3 +85,11 @@ _Avoid_: BatchSuccess, BatchFinished
 **Batch In-Place Update**:
 The operation that updates an existing batch history entry following a retry attempt rather than appending a redundant record.
 _Avoid_: HistoryPatch, RetryLog
+
+**Batch Action Type**:
+A discriminator characterizing whether an execution opened a standard sized sequential batch (`batch`) or flushed the remainder of queued URLs (`remaining`).
+_Avoid_: OpenKind, BatchMode
+
+**Remaining Action**:
+A batch opening operation targeting all remaining queued URLs in a single action up to the safety limit.
+_Avoid_: BulkFlush, TailOpen

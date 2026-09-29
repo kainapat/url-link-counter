@@ -28,6 +28,7 @@ export type OpenBatchResult = {
   blockedUrls: string[]
 }
 export type BatchHistoryStatus = 'complete' | 'partial'
+export type BatchActionType = 'batch' | 'remaining'
 
 export type BatchHistoryItem = {
   id: string
@@ -40,6 +41,8 @@ export type BatchHistoryItem = {
   openedUrls: string[]
   blockedUrls: string[]
   status: BatchHistoryStatus
+  actionType: BatchActionType
+  label: string
   timestamp: number
 }
 
@@ -184,24 +187,73 @@ export function openUrlBatch(
   }
 }
 
+export type CreateBatchHistoryItemOptions = {
+  batchNumber: number
+  displayStart: number
+  displayEnd: number
+  result: OpenBatchResult
+  actionType?: BatchActionType
+  label?: string
+}
+
 export function createBatchHistoryItem(
-  batchNumber: number,
-  slice: Pick<BatchSlice, 'displayStart' | 'displayEnd'>,
-  result: OpenBatchResult,
+  batchNumberOrOptions: number | CreateBatchHistoryItemOptions,
+  slice?: Pick<BatchSlice, 'displayStart' | 'displayEnd'>,
+  result?: OpenBatchResult,
 ): BatchHistoryItem {
+  if (typeof batchNumberOrOptions === 'object') {
+    const opts = batchNumberOrOptions
+    const actionType = opts.actionType ?? 'batch'
+    const label = opts.label ?? (actionType === 'remaining' ? 'Remaining' : `Batch ${opts.batchNumber}`)
+    return {
+      id: `${actionType}-${opts.batchNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      batchNumber: opts.batchNumber,
+      displayStart: opts.displayStart,
+      displayEnd: opts.displayEnd,
+      requested: opts.result.requested,
+      opened: opts.result.opened,
+      blocked: opts.result.blocked,
+      openedUrls: opts.result.openedUrls,
+      blockedUrls: opts.result.blockedUrls,
+      status: opts.result.blocked === 0 ? 'complete' : 'partial',
+      actionType,
+      label,
+      timestamp: Date.now(),
+    }
+  }
+
+  const batchNumber = batchNumberOrOptions
+  const res = result!
+  const sl = slice!
   return {
     id: `batch-${batchNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     batchNumber,
-    displayStart: slice.displayStart,
-    displayEnd: slice.displayEnd,
-    requested: result.requested,
-    opened: result.opened,
-    blocked: result.blocked,
-    openedUrls: result.openedUrls,
-    blockedUrls: result.blockedUrls,
-    status: result.blocked === 0 ? 'complete' : 'partial',
+    displayStart: sl.displayStart,
+    displayEnd: sl.displayEnd,
+    requested: res.requested,
+    opened: res.opened,
+    blocked: res.blocked,
+    openedUrls: res.openedUrls,
+    blockedUrls: res.blockedUrls,
+    status: res.blocked === 0 ? 'complete' : 'partial',
+    actionType: 'batch',
+    label: `Batch ${batchNumber}`,
     timestamp: Date.now(),
   }
+}
+
+/**
+ * Returns whether the next batch queue indicator should be displayed.
+ * Hides next batch if all URLs are opened or if there is an active blocked notice awaiting retry.
+ */
+export function shouldShowNextBatch(params: {
+  isComplete: boolean
+  hasBlockedNotice: boolean
+  remainingUrlsCount: number
+}): boolean {
+  if (params.isComplete) return false
+  if (params.hasBlockedNotice) return false
+  return params.remainingUrlsCount > 0
 }
 
 /**

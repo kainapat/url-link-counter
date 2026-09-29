@@ -25,7 +25,9 @@ import {
   getOpenableUrls,
   openUrlBatch,
   parseCustomBatchSize,
+  shouldShowNextBatch,
   updateBatchHistoryItem,
+  type BatchActionType,
   type BatchHistoryItem,
   type BatchPreset,
   type BatchSizeSelection,
@@ -69,7 +71,13 @@ export function OpenLinksControl({
   const [history, setHistory] = useState<BatchHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<{ count: number; isAll: boolean } | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{
+    count: number
+    isAll: boolean
+    batchNumber: number
+    actionType: BatchActionType
+    label: string
+  } | null>(null)
   const [blockedNotice, setBlockedNotice] = useState<{
     requested: number
     opened: number
@@ -130,15 +138,34 @@ export function OpenLinksControl({
   const remainingCount = Math.max(0, openableUrls.length - cursor)
 
   // Core open execution
-  const executeOpen = (count: number) => {
-    const slice = getBatch(openableUrls, cursor, count)
-    if (slice.urls.length === 0) return
+  type ExecuteOpenOptions = {
+    count: number
+    batchNumber: number
+    actionType: BatchActionType
+    label?: string
+  }
+
+  const executeOpen = (options: ExecuteOpenOptions) => {
+    const { count, batchNumber, actionType } = options
+    const sliceUrls = openableUrls.slice(cursor, cursor + count)
+    if (sliceUrls.length === 0) return
+
+    const displayStart = cursor + 1
+    const displayEnd = cursor + sliceUrls.length
+    const label = options.label ?? (actionType === 'remaining' ? 'Remaining' : `Batch ${batchNumber}`)
 
     setStatus('opening')
-    const result: OpenBatchResult = openUrlBatch(slice.urls)
+    const result: OpenBatchResult = openUrlBatch(sliceUrls)
 
-    // Log to session history
-    const historyItem = createBatchHistoryItem(slice.batchNumber, slice, result)
+    // Log to session history with accurate batch metadata
+    const historyItem = createBatchHistoryItem({
+      batchNumber,
+      displayStart,
+      displayEnd,
+      result,
+      actionType,
+      label,
+    })
     setHistory((prev) => [...prev, historyItem])
 
     if (result.blocked > 0) {
@@ -169,7 +196,7 @@ export function OpenLinksControl({
     setCursor(newCursor)
 
     setAriaAnnouncement(
-      `Opened Batch ${slice.batchNumber}. ${newCursor} of ${openableUrls.length} links opened.${
+      `Opened ${label}. ${newCursor} of ${openableUrls.length} links opened.${
         result.blocked > 0 ? ` ${result.blocked} links blocked by browser popup blocker.` : ''
       }`,
     )
@@ -186,11 +213,23 @@ export function OpenLinksControl({
       return
     }
     const targetCount = batchSlice.urls.length
+    const nextBatchNumber = history.length + 1
     if (targetCount >= CONFIRM_BATCH_THRESHOLD) {
-      setConfirmAction({ count: targetCount, isAll: false })
+      setConfirmAction({
+        count: targetCount,
+        isAll: false,
+        batchNumber: nextBatchNumber,
+        actionType: 'batch',
+        label: `Batch ${nextBatchNumber}`,
+      })
       setConfirmOpen(true)
     } else {
-      executeOpen(targetCount)
+      executeOpen({
+        count: targetCount,
+        batchNumber: nextBatchNumber,
+        actionType: 'batch',
+        label: `Batch ${nextBatchNumber}`,
+      })
     }
   }
 
@@ -233,22 +272,27 @@ export function OpenLinksControl({
       `Retried ${blockedNotice.blockedUrls.length} links: ${retryResult.opened} opened, ${retryResult.blocked} blocked.`,
     )
   }
-
   const handleOpenAllRemaining = () => {
     if (isComplete || remainingCount === 0 || status === 'opening' || blockedNotice !== null) return
     const cappedCount = Math.min(remainingCount, MAX_CUSTOM_BATCH)
-    setConfirmAction({ count: cappedCount, isAll: true })
+    const nextBatchNumber = history.length + 1
+    setConfirmAction({
+      count: cappedCount,
+      isAll: true,
+      batchNumber: nextBatchNumber,
+      actionType: 'remaining',
+      label: 'Remaining',
+    })
     setConfirmOpen(true)
   }
 
   const handleConfirm = () => {
     if (!confirmAction) return
-    const { count } = confirmAction
+    const { count, batchNumber, actionType, label } = confirmAction
     setConfirmOpen(false)
     setConfirmAction(null)
-    executeOpen(count)
+    executeOpen({ count, batchNumber, actionType, label })
   }
-
   const handleReset = () => {
     setCursor(0)
     setStatus('ready')
@@ -585,12 +629,12 @@ export function OpenLinksControl({
                       {item.status === 'complete' ? (
                         <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
                           <Check size={13} strokeWidth={2.5} />
-                          <span>Batch {item.batchNumber}</span>
+                          <span>{item.label}</span>
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
                           <AlertTriangle size={13} />
-                          <span>Batch {item.batchNumber}</span>
+                          <span>{item.label}</span>
                         </span>
                       )}
                       <span className="text-zinc-500 dark:text-zinc-400">Links {item.displayStart}–{item.displayEnd}</span>
@@ -600,10 +644,14 @@ export function OpenLinksControl({
                     </div>
                   </motion.li>
                 ))}
-                {!isComplete && (
+                {shouldShowNextBatch({
+                  isComplete,
+                  hasBlockedNotice: blockedNotice !== null,
+                  remainingUrlsCount: remainingCount,
+                }) && (
                   <li className="flex items-center justify-between bg-zinc-50/50 px-3 py-2 text-xs font-medium text-indigo-700 dark:bg-zinc-900/50 dark:text-indigo-300">
                     <div className="flex items-center gap-2">
-                      <span>→ Batch {batchSlice.batchNumber} (Next)</span>
+                      <span>→ Batch {history.length + 1} (Next)</span>
                       <span className="text-zinc-500 dark:text-zinc-400">Links {batchSlice.displayStart}–{batchSlice.displayEnd}</span>
                     </div>
                     <span>{batchSlice.urls.length} links queued</span>
