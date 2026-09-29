@@ -20,10 +20,21 @@ async function readShortUrl(res: Response, provider: string): Promise<string> {
   return text
 }
 
-// Ordered by browser reachability. TinyURL/is.gd omit CORS headers for
-// third-party origins, so direct browser calls to them always fail with
-// "Failed to fetch" — da.gd sends `Access-Control-Allow-Origin: *`.
+// Ordered with TinyURL first by user preference. Note: TinyURL/is.gd omit
+// CORS headers for third-party origins, so direct browser calls to them fail
+// with "Failed to fetch" and automatically fall through to da.gd, which
+// sends `Access-Control-Allow-Origin: *`.
 const PROVIDERS: Provider[] = [
+  {
+    name: 'TinyURL',
+    request: async (longUrl, signal) =>
+      readShortUrl(
+        await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`, {
+          signal,
+        }),
+        'TinyURL',
+      ),
+  },
   {
     name: 'da.gd',
     request: async (longUrl, signal) =>
@@ -40,16 +51,6 @@ const PROVIDERS: Provider[] = [
           signal,
         }),
         'is.gd',
-      ),
-  },
-  {
-    name: 'TinyURL',
-    request: async (longUrl, signal) =>
-      readShortUrl(
-        await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`, {
-          signal,
-        }),
-        'TinyURL',
       ),
   },
 ]

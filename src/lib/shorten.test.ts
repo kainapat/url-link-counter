@@ -47,7 +47,7 @@ describe('shortenBatch', () => {
     // Fail the first provider attempt — the url must fall back, batch continues.
     gates[0].reject(new Error('boom'))
     await vi.waitFor(() => expect(calls.length).toBe(6))
-    expect(calls[5]).toContain('is.gd')
+    expect(calls[5]).toContain('da.gd')
 
     // Resolve everything else (retry + remaining).
     for (let i = 1; i < 9; i++) {
@@ -71,7 +71,7 @@ describe('shortenBatch', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
-        if (url.includes('da.gd')) return Promise.reject(new TypeError('Failed to fetch'))
+        if (url.includes('tinyurl.com')) return Promise.reject(new TypeError('Failed to fetch'))
         return Promise.resolve(new Response('https://is.gd/abc123', { status: 200 }))
       }),
     )

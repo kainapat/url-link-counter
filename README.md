@@ -25,7 +25,7 @@ exporting links from pasted text — without ever changing your source list.
 
 **Shorten**
 
-- URL shortener (da.gd → is.gd → TinyURL automatic fallback, max 5 concurrent requests)
+- URL shortener (TinyURL → da.gd → is.gd automatic fallback, max 5 concurrent requests)
 - Shorten per link or shorten all (valid links only)
 - Per-link status: waiting → shortening → done / failed (one failure never stops the batch)
 - Live progress (`Shortening 14/50`) with screen-reader announcements
