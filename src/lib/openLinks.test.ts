@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { UrlItem } from './urls'
 import {
+  createBatchHistoryItem,
   getBatch,
   getOpenableUrls,
   openUrlBatch,
   parseCustomBatchSize,
+  type BatchHistoryItem,
 } from './openLinks'
+import { defaultTabGroupBridge, WebTabGroupBridge } from './tabGroups'
 
 function makeUrlItem(overrides: Partial<UrlItem> & { raw: string }): UrlItem {
   return {
@@ -20,19 +23,19 @@ function makeUrlItem(overrides: Partial<UrlItem> & { raw: string }): UrlItem {
 describe('openLinks: getBatch with 73 URLs', () => {
   const urls73 = Array.from({ length: 73 }, (_, i) => `https://example.com/page/${i + 1}`)
 
-  it('batches 73 URLs with batch size 10 into exact expected ranges: 1-10, 11-20 ... 71-73', () => {
+  it('batches 73 URLs with batch size 10 into exact expected ranges: Batch 1 (1-10) to Batch 8 (71-73)', () => {
     const expectedRanges = [
-      { cursor: 0, start: 1, end: 10, count: 10 },
-      { cursor: 10, start: 11, end: 20, count: 10 },
-      { cursor: 20, start: 21, end: 30, count: 10 },
-      { cursor: 30, start: 31, end: 40, count: 10 },
-      { cursor: 40, start: 41, end: 50, count: 10 },
-      { cursor: 50, start: 51, end: 60, count: 10 },
-      { cursor: 60, start: 61, end: 70, count: 10 },
-      { cursor: 70, start: 71, end: 73, count: 3 },
+      { cursor: 0, batchNumber: 1, start: 1, end: 10, count: 10 },
+      { cursor: 10, batchNumber: 2, start: 11, end: 20, count: 10 },
+      { cursor: 20, batchNumber: 3, start: 21, end: 30, count: 10 },
+      { cursor: 30, batchNumber: 4, start: 31, end: 40, count: 10 },
+      { cursor: 40, batchNumber: 5, start: 41, end: 50, count: 10 },
+      { cursor: 50, batchNumber: 6, start: 51, end: 60, count: 10 },
+      { cursor: 60, batchNumber: 7, start: 61, end: 70, count: 10 },
+      { cursor: 70, batchNumber: 8, start: 71, end: 73, count: 3 },
     ]
 
-    for (const { cursor, start, end, count } of expectedRanges) {
+    for (const { cursor, batchNumber, start, end, count } of expectedRanges) {
       const batch = getBatch(urls73, cursor, 10)
       expect(batch.urls).toHaveLength(count)
       expect(batch.startIndex).toBe(cursor)
@@ -40,6 +43,8 @@ describe('openLinks: getBatch with 73 URLs', () => {
       expect(batch.displayStart).toBe(start)
       expect(batch.displayEnd).toBe(end)
       expect(batch.total).toBe(73)
+      expect(batch.batchNumber).toBe(batchNumber)
+      expect(batch.totalBatches).toBe(8)
       expect(batch.urls[0]).toBe(`https://example.com/page/${start}`)
       expect(batch.urls[batch.urls.length - 1]).toBe(`https://example.com/page/${end}`)
     }
@@ -207,6 +212,7 @@ describe('openLinks: openUrlBatch and popup blocker handling', () => {
       opened: 3,
       blocked: 0,
       openedUrls: targets,
+      blockedUrls: [],
     })
   })
 
@@ -296,5 +302,95 @@ describe('openLinks: cursor progression and reset workflow', () => {
     const freshBatch = getBatch(sourceUrls, cursor, 10)
     expect(freshBatch.total).toBe(2)
     expect(freshBatch.urls).toEqual(['https://newsite.com/1', 'https://newsite.com/2'])
+  })
+})
+
+describe('openLinks: session batch history and blocked retry', () => {
+  const urls = Array.from({ length: 30 }, (_, i) => `https://example.com/item-${i + 1}`)
+
+  it('logs opened batches into history: after 2 batches, opened = 20, currentBatch = 3', () => {
+    const history: BatchHistoryItem[] = []
+    let cursor = 0
+
+    const mockOpener = vi.fn().mockReturnValue({ closed: false } as Window)
+
+    // Batch 1: 1-10
+    const slice1 = getBatch(urls, cursor, 10)
+    const result1 = openUrlBatch(slice1.urls, mockOpener)
+    history.push(createBatchHistoryItem(slice1.batchNumber, slice1, result1))
+    cursor += result1.opened
+
+    expect(cursor).toBe(10)
+    expect(history).toHaveLength(1)
+    expect(history[0].batchNumber).toBe(1)
+    expect(history[0].opened).toBe(10)
+    expect(history[0].blocked).toBe(0)
+
+    // Batch 2: 11-20
+    const slice2 = getBatch(urls, cursor, 10)
+    expect(slice2.batchNumber).toBe(2)
+    const result2 = openUrlBatch(slice2.urls, mockOpener)
+    history.push(createBatchHistoryItem(slice2.batchNumber, slice2, result2))
+    cursor += result2.opened
+
+    expect(cursor).toBe(20)
+    expect(history).toHaveLength(2)
+    expect(history[1].batchNumber).toBe(2)
+    expect(history[1].opened).toBe(10)
+
+    // Next batch to open is Batch 3 (21-30)
+    const slice3 = getBatch(urls, cursor, 10)
+    expect(slice3.batchNumber).toBe(3)
+    expect(slice3.displayStart).toBe(21)
+    expect(slice3.displayEnd).toBe(30)
+  })
+
+  it('handles partial popup blocker (requested 10, opened 6, blocked 4) and allows retry', () => {
+    let call = 0
+    const flakyOpener = vi.fn(() => {
+      call += 1
+      if (call <= 6) return { closed: false } as Window
+      return null // blocked
+    })
+
+    let cursor = 0
+    const slice = getBatch(urls, cursor, 10)
+    const result = openUrlBatch(slice.urls, flakyOpener)
+
+    expect(result.requested).toBe(10)
+    expect(result.opened).toBe(6)
+    expect(result.blocked).toBe(4)
+    expect(result.blockedUrls).toHaveLength(4)
+    expect(result.blockedUrls[0]).toBe('https://example.com/item-7')
+
+    // Progress must NOT count 10 as opened
+    cursor += result.opened
+    expect(cursor).toBe(6)
+
+    // Now user allows popups and retries the 4 blocked URLs
+    const successOpener = vi.fn().mockReturnValue({ closed: false } as Window)
+    const retryResult = openUrlBatch(result.blockedUrls, successOpener)
+    expect(retryResult.requested).toBe(4)
+    expect(retryResult.opened).toBe(4)
+    expect(retryResult.blocked).toBe(0)
+    cursor += retryResult.opened
+    expect(cursor).toBe(10)
+  })
+})
+
+describe('tabGroups: progressive enhancement capability', () => {
+  it('reports unavailable capability on web without attempting to call chrome.tabs', async () => {
+    const bridge = new WebTabGroupBridge()
+    expect(bridge.capability).toBe('unavailable')
+    expect(bridge.isAvailable()).toBe(false)
+
+    const res = await bridge.openInGroup(['https://example.com/1'])
+    expect(res.success).toBe(false)
+    expect(res.error).toContain('unavailable to standard websites')
+  })
+
+  it('defaultTabGroupBridge is an instance of WebTabGroupBridge', () => {
+    expect(defaultTabGroupBridge.capability).toBe('unavailable')
+    expect(defaultTabGroupBridge.isAvailable()).toBe(false)
   })
 })

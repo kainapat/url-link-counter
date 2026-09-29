@@ -11,7 +11,7 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite 6](https://img.shields.io/badge/Vite-6.4-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![Tailwind CSS 3](https://img.shields.io/badge/Tailwind-3.4-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vitest](https://img.shields.io/badge/Vitest-41_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-45_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Radix UI](https://img.shields.io/badge/Radix_UI-Primitives-black?style=for-the-badge&logo=radixui&logoColor=white)](https://www.radix-ui.com/)
 [![Motion](https://img.shields.io/badge/Motion-12-ff0055?style=for-the-badge&logo=framer&logoColor=white)](https://motion.dev/)
 
@@ -145,6 +145,50 @@ flowchart TD
     O -->|"No"| Q["State: Opened (Ready for next batch)"]
 ```
 
+
+## 📑 Tab Groups & Progressive Enhancement Architecture
+
+Standard browser security models restrict the Chrome Tab Groups API (`chrome.tabs.group()`, `chrome.tabGroups.update()`) exclusively to privileged browser extension contexts. Regular web pages—regardless of browser—do not possess permission to group tabs directly.
+
+Linkcount approaches this with a strict **Progressive Enhancement** architecture (`src/lib/tabGroups.ts`):
+
+```ts
+export type TabGroupingCapability = 'unavailable' | 'extension'
+
+export interface TabGroupBridge {
+  readonly capability: TabGroupingCapability
+  isAvailable(): boolean
+  openInGroup(urls: string[], options?: TabGroupOptions): Promise<TabGroupResult>
+}
+```
+
+In standard web browsers, `defaultTabGroupBridge` accurately returns `capability: 'unavailable'`. Linkcount never fabricates fake tab group statuses.
+
+### 🔮 Future Extension Roadmap
+
+A companion **Linkcount Browser Extension** can be integrated in the future for Chromium desktop environments without altering web core code:
+
+```text
+┌──────────────┐     Select 20 URLs     ┌───────────────────────┐
+│  Linkcount   ├───────────────────────►│  Browser Extension   │
+└──────────────┘                        └──────────┬────────────┘
+                                                   │
+                                                   ▼
+                                        ┌───────────────────────┐
+                                        │  chrome.tabs.create() │
+                                        └──────────┬────────────┘
+                                                   │
+                                                   ▼
+                                        ┌───────────────────────┐
+                                        │  chrome.tabs.group()  │
+                                        └──────────┬────────────┘
+                                                   │
+                                                   ▼
+                                        ┌────────────────────────┐
+                                        │ chrome.tabGroups.update│
+                                        │ Name: "Batch 1" / Color│
+                                        └────────────────────────┘
+```
 ---
 
 ## 🔄 Parser Pipeline
@@ -223,7 +267,7 @@ Network requests are managed by an asynchronous worker pool with automatic retry
 | **Animation** | [Motion](https://motion.dev/) | Spring transitions with reduced-motion support |
 | **Icons** | [Lucide React](https://lucide.dev/) | Clean, accessible SVG iconography |
 | **Primitives** | [Radix UI](https://www.radix-ui.com/) | Accessible dialogs (`AlertDialog`) & tooltips (`Tooltip`) |
-| **Testing** | [Vitest](https://vitest.dev/) | 41 comprehensive unit, concurrency & batch opener tests |
+| **Testing** | [Vitest](https://vitest.dev/) | 45 comprehensive unit, concurrency & batch opener tests |
 
 ---
 
@@ -258,7 +302,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ### Testing
 
 ```bash
-# Run Vitest test suite (41 tests)
+# Run Vitest test suite (45 tests)
 npm run test
 ```
 
@@ -282,8 +326,9 @@ url-link-counter/
 │   ├── components/
 │   │   └── OpenLinksControl.tsx # Batch opener UI, presets, popup alert & Radix dialog
 │   ├── lib/
+│   │   ├── tabGroups.ts         # Progressive enhancement contract & web fallback
 │   │   ├── openLinks.ts         # Pure batching logic, validation & opener engine
-│   │   ├── openLinks.test.ts    # 15 tests: 73-URL batching, popup blocking, total/unique modes
+│   │   ├── openLinks.test.ts    # 19 tests: batching, history, retry, tab group fallback
 │   │   ├── urls.ts              # Parser pipeline, cleaner & domain counter
 │   │   ├── urls.test.ts         # 19 parser unit tests (parens, markdown, edge cases)
 │   │   ├── shorten.ts           # Multi-provider fallback shortener & batch queue

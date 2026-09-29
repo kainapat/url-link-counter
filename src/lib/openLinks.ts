@@ -16,6 +16,8 @@ export type BatchSlice = {
   total: number
   displayStart: number
   displayEnd: number
+  batchNumber: number
+  totalBatches: number
 }
 
 export type OpenBatchResult = {
@@ -23,6 +25,20 @@ export type OpenBatchResult = {
   opened: number
   blocked: number
   openedUrls: string[]
+  blockedUrls: string[]
+}
+
+export type BatchHistoryItem = {
+  id: string
+  batchNumber: number
+  displayStart: number
+  displayEnd: number
+  requested: number
+  opened: number
+  blocked: number
+  openedUrls: string[]
+  blockedUrls: string[]
+  timestamp: number
 }
 
 export const DEFAULT_BATCH_SIZE: BatchPreset = 10
@@ -68,6 +84,9 @@ export function getBatch(urls: string[], cursor: number, batchSize: number): Bat
   const batch = urls.slice(safeCursor, safeCursor + safeSize)
   const endIndex = safeCursor + batch.length
 
+  const batchNumber = safeSize > 0 ? 1 + Math.floor(safeCursor / safeSize) : 1
+  const totalBatches = safeSize > 0 ? Math.max(1, Math.ceil(urls.length / safeSize)) : 1
+
   return {
     urls: batch,
     startIndex: safeCursor,
@@ -75,6 +94,8 @@ export function getBatch(urls: string[], cursor: number, batchSize: number): Bat
     total: urls.length,
     displayStart: batch.length === 0 ? 0 : safeCursor + 1,
     displayEnd: endIndex,
+    batchNumber,
+    totalBatches,
   }
 }
 
@@ -103,6 +124,7 @@ export function openUrlBatch(
   let opened = 0
   let blocked = 0
   const openedUrls: string[] = []
+  const blockedUrls: string[] = []
 
   for (const url of urls) {
     try {
@@ -113,9 +135,11 @@ export function openUrlBatch(
         openedUrls.push(url)
       } else {
         blocked += 1
+        blockedUrls.push(url)
       }
     } catch {
       blocked += 1
+      blockedUrls.push(url)
     }
   }
 
@@ -124,5 +148,25 @@ export function openUrlBatch(
     opened,
     blocked,
     openedUrls,
+    blockedUrls,
+  }
+}
+
+export function createBatchHistoryItem(
+  batchNumber: number,
+  slice: Pick<BatchSlice, 'displayStart' | 'displayEnd'>,
+  result: OpenBatchResult,
+): BatchHistoryItem {
+  return {
+    id: `batch-${batchNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    batchNumber,
+    displayStart: slice.displayStart,
+    displayEnd: slice.displayEnd,
+    requested: result.requested,
+    opened: result.opened,
+    blocked: result.blocked,
+    openedUrls: result.openedUrls,
+    blockedUrls: result.blockedUrls,
+    timestamp: Date.now(),
   }
 }

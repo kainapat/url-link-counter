@@ -55,3 +55,25 @@ _Avoid_: Link to shorten, Target long URL
 **Mapped Shortened Output**:
 The final collection of shortened links mapped back onto original document occurrences while only executing unique API requests.
 _Avoid_: Expanded shortened list, Reconstructed URLs
+
+### Tab Grouping & Progressive Enhancement
+
+**TabGroupingCapability**:
+An indicator declaring whether the current execution runtime supports native browser tab grouping (`unavailable` in standard web pages, `extension` when backed by a browser extension bridge).
+_Avoid_: TabGroupSupport, ExtensionPermission
+
+**TabGroupBridge**:
+An interface contract for dispatching tab creation and grouping commands to a privileged environment without coupling the web app to Extension APIs.
+_Avoid_: ChromeBridge, ExtensionClient
+
+**Internal Batch**:
+A named conceptual grouping within Linkcount (`Batch 1`, `Batch 2`, etc.) that labels sequential slices of opened URLs for user orientation.
+_Avoid_: BrowserGroup, TabFolder
+
+**Batch History**:
+An in-memory, session-only log of opened batches tracking opened counts, blocked counts, and URL index ranges.
+_Avoid_: PersistentHistory, OpenLog
+
+**Blocked Retry Queue**:
+The subset of URLs within an opened batch that failed to launch due to browser popup restrictions, held for immediate re-attempt.
+_Avoid_: FailedList, RetryPool
