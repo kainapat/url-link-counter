@@ -93,3 +93,13 @@ _Avoid_: OpenKind, BatchMode
 **Remaining Action**:
 A batch opening operation targeting all remaining queued URLs in a single action up to the safety limit.
 _Avoid_: BulkFlush, TailOpen
+
+### UI Workspace & Feedback
+
+**URL Workspace**:
+The unified editing, inspection, and batch execution surface structured as a productivity tool rather than isolated card modules.
+_Avoid_: Dashboard, CardGrid
+
+**Action Toast**:
+A transient status notification delivered via Sonner confirming discrete user actions without shifting layout.
+_Avoid_: PopupAlert, ToastMessage

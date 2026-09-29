@@ -1,15 +1,13 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import * as AlertDialog from '@radix-ui/react-alert-dialog'
 import * as Tooltip from '@radix-ui/react-tooltip'
+import { toast } from 'sonner'
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
-  ChevronUp,
   ExternalLink,
   FolderPlus,
-  History,
   Loader2,
   RotateCcw,
 } from 'lucide-react'
@@ -37,6 +35,8 @@ import {
   type OpenLinksScope,
   type OpenLinksState,
 } from '../lib/openLinks'
+import { BlockedAlert } from './BlockedAlert'
+import { BatchHistory } from './BatchHistory'
 
 export type OpenLinksControlProps = {
   allUrls: UrlItem[]
@@ -128,6 +128,7 @@ export function OpenLinksControl({
     }
     prevSignature.current = currentSignature
   }, [openableUrls, scope, duplicateMode, query, filter, effectiveBatchSize])
+
   // Current batch slice
   const batchSlice = useMemo(
     () => getBatch(openableUrls, cursor, effectiveBatchSize),
@@ -176,13 +177,16 @@ export function OpenLinksControl({
         blocked: result.blocked,
         blockedUrls: result.blockedUrls,
       })
+      toast.warning(`${result.blocked} links were blocked by browser pop-up protection`)
     } else {
       setBlockedNotice(null)
       const nextCursor = cursor + result.opened
       if (nextCursor >= openableUrls.length) {
         setStatus('complete')
+        toast.success(`All ${openableUrls.length} links opened`)
       } else {
         setStatus('opened')
+        toast.success(`${result.opened} links opened`)
       }
     }
 
@@ -263,15 +267,18 @@ export function OpenLinksControl({
         blocked: retryResult.blocked,
         blockedUrls: retryResult.blockedUrls,
       })
+      toast.warning(`${retryResult.blocked} links are still blocked`)
     } else {
       setStatus(newCursor >= openableUrls.length ? 'complete' : 'opened')
       setBlockedNotice(null)
+      toast.success(`${retryResult.opened} retried links opened`)
     }
 
     setAriaAnnouncement(
       `Retried ${blockedNotice.blockedUrls.length} links: ${retryResult.opened} opened, ${retryResult.blocked} blocked.`,
     )
   }
+
   const handleOpenAllRemaining = () => {
     if (isComplete || remainingCount === 0 || status === 'opening' || blockedNotice !== null) return
     const cappedCount = Math.min(remainingCount, MAX_CUSTOM_BATCH)
@@ -293,12 +300,14 @@ export function OpenLinksControl({
     setConfirmAction(null)
     executeOpen({ count, batchNumber, actionType, label })
   }
+
   const handleReset = () => {
     setCursor(0)
     setStatus('ready')
     setBlockedNotice(null)
     setHistory([])
     setJustOpenedCount(null)
+    toast('Batch progress reset')
     setAriaAnnouncement(`Reset batch cursor. Opened 0 of ${openableUrls.length} links.`)
   }
 
@@ -306,28 +315,30 @@ export function OpenLinksControl({
     return null
   }
 
+  const percentComplete = openableUrls.length > 0 ? Math.min(100, Math.round((cursor / openableUrls.length) * 100)) : 0
+
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60 sm:p-5">
-      {/* Header and Progressive Enhancement Desktop Tooltip */}
-      <div className="flex items-center justify-between gap-2 border-b border-zinc-200/80 pb-3 dark:border-zinc-800/80">
+    <div className="flex flex-col gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/40 sm:p-5">
+      {/* Top Header: Title, Status Pill & Desktop Tooltip */}
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-200/60 pb-3 dark:border-zinc-800/60">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+          <span className="text-xs font-semibold tracking-wider text-zinc-900 uppercase dark:text-zinc-100">
             Open links in batch
           </span>
           {!isComplete && openableUrls.length > 0 && (
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-              Batch {batchSlice.batchNumber} of {batchSlice.totalBatches}
+            <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+              Batch {history.length + 1} of {batchSlice.totalBatches}
             </span>
           )}
         </div>
 
-        {/* Desktop Tab Group Progressive Enhancement Tooltip (hidden on mobile) */}
-        <div className="hidden sm:flex sm:items-center sm:gap-2">
+        {/* Desktop Tab Group Tooltip */}
+        <div className="hidden sm:flex sm:items-center">
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
               <button
                 type="button"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-zinc-500 dark:hover:text-zinc-300"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-zinc-400 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-zinc-500 dark:hover:text-zinc-300"
               >
                 <FolderPlus size={14} />
                 <span>Tab groups</span>
@@ -346,11 +357,44 @@ export function OpenLinksControl({
         </div>
       </div>
 
-      {/* Mobile/Tablet Stacked Controls Grid */}
+      {/* Progress Bar & Status Line */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-950 dark:text-zinc-50">
+              {isComplete ? `All ${openableUrls.length} links opened` : `${cursor} / ${openableUrls.length} opened`}
+            </span>
+            {blockedNotice ? (
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                ({blockedNotice.blocked} blocked in current batch — retry required)
+              </span>
+            ) : !isComplete && openableUrls.length > 0 ? (
+              <span className="text-zinc-500 dark:text-zinc-400">
+                Next: {batchSlice.displayStart}–{batchSlice.displayEnd}
+              </span>
+            ) : null}
+          </div>
+          <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">
+            {percentComplete}%
+          </span>
+        </div>
+
+        {/* Animated Progress Bar */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/80 dark:bg-zinc-800">
+          <motion.div
+            className="h-full bg-indigo-600 transition-all dark:bg-indigo-500"
+            initial={false}
+            animate={{ width: `${percentComplete}%` }}
+            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+          />
+        </div>
+      </div>
+
+      {/* Stacked Controls on Mobile, Horizontal Grid on Tablet/Desktop */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Control 1: Batch Size */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={selectId} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          <label htmlFor={selectId} className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             Open per batch
           </label>
           <div className="flex items-center gap-2">
@@ -406,7 +450,7 @@ export function OpenLinksControl({
 
         {/* Control 2: Scope Selector */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={scopeSelectId} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          <label htmlFor={scopeSelectId} className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             Scope
           </label>
           <div className="relative">
@@ -428,7 +472,7 @@ export function OpenLinksControl({
 
         {/* Control 3: Occurrence Mode Selector */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={modeSelectId} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          <label htmlFor={modeSelectId} className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             Duplicates
           </label>
           <div className="relative">
@@ -449,8 +493,8 @@ export function OpenLinksControl({
         </div>
       </div>
 
-      {/* Primary Actions & Status Row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Primary Actions Row */}
+      <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {/* Main Open Next Button */}
           <button
@@ -473,7 +517,7 @@ export function OpenLinksControl({
             className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:flex-initial ${
               isComplete
                 ? 'bg-emerald-600 text-white dark:bg-emerald-600'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600'
+                : 'bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200'
             }`}
           >
             {status === 'opening' ? (
@@ -502,166 +546,53 @@ export function OpenLinksControl({
             disabled={cursor === 0 && history.length === 0}
             onClick={handleReset}
             aria-label="Reset batch cursor to beginning"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           >
             <RotateCcw size={14} />
             <span>Reset</span>
           </button>
         </div>
 
-        {/* Secondary actions & History Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-          {remainingCount > 0 && remainingCount !== batchSlice.urls.length && (
-            <button
-              type="button"
-              disabled={blockedNotice !== null}
-              onClick={handleOpenAllRemaining}
-              className="min-h-11 rounded-lg px-2 text-xs font-semibold text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
-            >
-              Open all remaining ({remainingCount > MAX_CUSTOM_BATCH ? `${MAX_CUSTOM_BATCH} max` : remainingCount})
-            </button>
-          )}
-
-          {history.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowHistory((v) => !v)}
-              aria-expanded={showHistory}
-              aria-label="Toggle batch history log"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <History size={13} />
-              <span>{history.length} {history.length === 1 ? 'batch' : 'batches'} opened</span>
-              {showHistory ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          )}
-        </div>
+        {/* Secondary Remaining Button */}
+        {remainingCount > 0 && remainingCount !== batchSlice.urls.length && (
+          <button
+            type="button"
+            disabled={blockedNotice !== null}
+            onClick={handleOpenAllRemaining}
+            className="min-h-11 self-start rounded-lg px-2 text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-900 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200 sm:self-auto"
+          >
+            Open all remaining ({remainingCount > MAX_CUSTOM_BATCH ? `${MAX_CUSTOM_BATCH} max` : remainingCount})
+          </button>
+        )}
       </div>
 
-      {/* Progress & Next Indicator */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200/80 pt-3 text-xs text-zinc-600 dark:border-zinc-800/80 dark:text-zinc-400">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-zinc-900 dark:text-zinc-100">
-            {isComplete ? `All ${openableUrls.length} links opened` : `${cursor} / ${openableUrls.length} opened`}
-          </span>
-          {blockedNotice ? (
-            <span className="font-semibold text-amber-700 dark:text-amber-400">
-              ({blockedNotice.blocked} blocked in current batch — retry required)
-            </span>
-          ) : !isComplete && openableUrls.length > 0 ? (
-            <span className="font-medium text-zinc-500 dark:text-zinc-400">
-              Next: {batchSlice.displayStart}–{batchSlice.displayEnd}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          Scope: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{scope === 'current' ? 'Current' : 'All'}</span>
-          {' '}• Duplicates: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{duplicateMode === 'unique' ? 'Unique' : 'Total'}</span>
-        </div>
-      </div>
-
-      {/* Popup Blocker Alert Notification with Primary Retry Button */}
+      {/* Blocked Alert Component if blocked */}
       {blockedNotice && (
-        <div
-          role="alert"
-          className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-        >
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-amber-950 dark:text-amber-100">
-                Browser blocked {blockedNotice.blocked} links
-              </p>
-              <p className="leading-relaxed text-amber-900 dark:text-amber-200">
-                Your browser blocked some tabs. Allow pop-ups for Linkcount and try the remaining links again.
-              </p>
-              <p className="font-medium text-amber-800 dark:text-amber-300">
-                Requested: {blockedNotice.requested} • Opened: {blockedNotice.opened} • Blocked: {blockedNotice.blocked}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pt-1 sm:justify-end">
-            <button
-              type="button"
-              onClick={handleRetryBlocked}
-              disabled={status === 'opening'}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:flex-initial"
-            >
-              <RotateCcw size={15} />
-              <span>Retry {blockedNotice.blocked} blocked</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 active:scale-[0.98] motion-reduce:transition-none dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-zinc-800"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
+        <BlockedAlert
+          requested={blockedNotice.requested}
+          opened={blockedNotice.opened}
+          blocked={blockedNotice.blocked}
+          onRetry={handleRetryBlocked}
+          onReset={handleReset}
+          isOpening={status === 'opening'}
+        />
       )}
 
-      {/* Session Batch History Drawer */}
-      <AnimatePresence initial={false}>
-        {showHistory && history.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.16 }}
-            className="overflow-hidden border-t border-zinc-200 pt-3 dark:border-zinc-800"
-          >
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Opened batches in this session
-              </span>
-              <ul className="divide-y divide-zinc-200/60 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800/60 dark:border-zinc-800 dark:bg-zinc-950">
-                {history.map((item) => (
-                  <motion.li
-                    key={item.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="flex items-center justify-between px-3 py-2 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      {item.status === 'complete' ? (
-                        <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                          <Check size={13} strokeWidth={2.5} />
-                          <span>{item.label}</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
-                          <AlertTriangle size={13} />
-                          <span>{item.label}</span>
-                        </span>
-                      )}
-                      <span className="text-zinc-500 dark:text-zinc-400">Links {item.displayStart}–{item.displayEnd}</span>
-                    </div>
-                    <div className="text-zinc-600 dark:text-zinc-400">
-                      {item.opened} opened · {item.blocked} blocked
-                    </div>
-                  </motion.li>
-                ))}
-                {shouldShowNextBatch({
-                  isComplete,
-                  hasBlockedNotice: blockedNotice !== null,
-                  remainingUrlsCount: remainingCount,
-                }) && (
-                  <li className="flex items-center justify-between bg-zinc-50/50 px-3 py-2 text-xs font-medium text-indigo-700 dark:bg-zinc-900/50 dark:text-indigo-300">
-                    <div className="flex items-center gap-2">
-                      <span>→ Batch {history.length + 1} (Next)</span>
-                      <span className="text-zinc-500 dark:text-zinc-400">Links {batchSlice.displayStart}–{batchSlice.displayEnd}</span>
-                    </div>
-                    <span>{batchSlice.urls.length} links queued</span>
-                  </li>
-                )}
-              </ul>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Batch History Component */}
+      <BatchHistory
+        history={history}
+        isOpen={showHistory}
+        onToggle={() => setShowHistory((v) => !v)}
+        shouldShowNext={shouldShowNextBatch({
+          isComplete,
+          hasBlockedNotice: blockedNotice !== null,
+          remainingUrlsCount: remainingCount,
+        })}
+        nextBatchNumber={history.length + 1}
+        nextDisplayStart={batchSlice.displayStart}
+        nextDisplayEnd={batchSlice.displayEnd}
+        nextCount={batchSlice.urls.length}
+      />
 
       {/* Screen Reader Announcement */}
       <p aria-live="polite" className="sr-only">
@@ -672,7 +603,7 @@ export function OpenLinksControl({
       <AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity" />
-          <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 bg-white p-6 shadow-xl focus:outline-none dark:border-zinc-800 dark:bg-zinc-900">
+          <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 bg-white p-6 shadow-xl focus:outline-none dark:border-zinc-800 dark:bg-zinc-900">
             <AlertDialog.Title className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Open {confirmAction?.count} links?
             </AlertDialog.Title>
@@ -695,7 +626,7 @@ export function OpenLinksControl({
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                  className="min-h-11 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
                 >
                   Open {confirmAction?.count} links
                 </button>
