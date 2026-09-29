@@ -11,7 +11,7 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 [![TypeScript 5](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite 6](https://img.shields.io/badge/Vite-6.4-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![Tailwind CSS 3](https://img.shields.io/badge/Tailwind-3.4-06b6d4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vitest](https://img.shields.io/badge/Vitest-38_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-41_passed-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 [![Radix UI](https://img.shields.io/badge/Radix_UI-Primitives-black?style=for-the-badge&logo=radixui&logoColor=white)](https://www.radix-ui.com/)
 [![Motion](https://img.shields.io/badge/Motion-12-ff0055?style=for-the-badge&logo=framer&logoColor=white)](https://motion.dev/)
 
@@ -53,12 +53,12 @@ Accurately dissects complex pasted text and Markdown without ever mutating your 
 │  │  github.com (24)  •  vite.dev (12)  •  tailwindcss.com (8)   [Show all...] │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
-│  ┌─ Results (73 links) ──────────────────── [ Search URLs... ] [ Filter: All ▾ ] ┐  │
-│  │  [📋 Copy all]  [📥 TXT]  [📊 CSV]  [✂️ Shorten all]                         │  │
-│  ├────────────────────────────────────────────────────────────────────────────┤  │
-│  │  OPEN LINKS                                                                │  │
-│  │  [ 10 links ▾ ]  [ ↗ Open next 10 ]  [ ↺ Reset ]        [ ⚙ Options ▾ ]    │  │
-│  │  Opened 20 / 71 (Next: 21–30) • Scope: Current results • Mode: Unique URLs │  │
+│  ┌─ Results (73 links) ─ [ Mode: Total URLs | Unique ] ─ [ Search URLs... ] [ Filter: All ▾ ] ┐  │
+│  │  [📋 Copy all]  [📥 TXT]  [📊 CSV]  [✂️ Shorten all]  [📋 Copy shortened (71)]             │  │
+│  ├────────────────────────────────────────────────────────────────────────────────────────────┤  │
+│  │  OPEN LINKS                                                                                │  │
+│  │  [ 10 links ▾ ]  [ ↗ Open next 10 ]  [ ↺ Reset ]        [ ⚙ Options ▾ ]                    │  │
+│  │  Opened 20 / 71 (Next: 21–30) • Scope: Current results • Mode: Total URLs                  │  │
 │  ├────────────────────────────────────────────────────────────────────────────┤  │
 │  │  #1  https://github.com/kainapat...    github.com     [Valid]   [📋] [✂️]    │  │
 │  │  #2  https://github.com/kainapat...    github.com     [Valid] [Duplicate]    │  │
@@ -223,7 +223,7 @@ Network requests are managed by an asynchronous worker pool with automatic retry
 | **Animation** | [Motion](https://motion.dev/) | Spring transitions with reduced-motion support |
 | **Icons** | [Lucide React](https://lucide.dev/) | Clean, accessible SVG iconography |
 | **Primitives** | [Radix UI](https://www.radix-ui.com/) | Accessible dialogs (`AlertDialog`) & tooltips (`Tooltip`) |
-| **Testing** | [Vitest](https://vitest.dev/) | 38 comprehensive unit, concurrency & batch opener tests |
+| **Testing** | [Vitest](https://vitest.dev/) | 41 comprehensive unit, concurrency & batch opener tests |
 
 ---
 
@@ -258,7 +258,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ### Testing
 
 ```bash
-# Run Vitest test suite (38 tests)
+# Run Vitest test suite (41 tests)
 npm run test
 ```
 
@@ -283,11 +283,11 @@ url-link-counter/
 │   │   └── OpenLinksControl.tsx # Batch opener UI, presets, popup alert & Radix dialog
 │   ├── lib/
 │   │   ├── openLinks.ts         # Pure batching logic, validation & opener engine
-│   │   ├── openLinks.test.ts    # 14 tests: 73-URL batching, popup blocking, duplicates
+│   │   ├── openLinks.test.ts    # 15 tests: 73-URL batching, popup blocking, total/unique modes
 │   │   ├── urls.ts              # Parser pipeline, cleaner & domain counter
 │   │   ├── urls.test.ts         # 19 parser unit tests (parens, markdown, edge cases)
 │   │   ├── shorten.ts           # Multi-provider fallback shortener & batch queue
-│   │   └── shorten.test.ts      # 5 tests: concurrency, cancellation & token isolation
+│   │   └── shorten.test.ts      # 7 tests: concurrency, token isolation & total mapping
 │   ├── App.tsx                  # Main UI: input, analytics, results, bulk actions
 │   ├── main.tsx                 # Application entrypoint & MotionConfig setup
 │   ├── index.css                # Tailwind base styles, theme variables, grid & glow

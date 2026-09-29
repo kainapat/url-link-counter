@@ -120,6 +120,20 @@ describe('openLinks: getOpenableUrls', () => {
       'https://example.com/3',
     ])
   })
+  it('in total mode, preserves all occurrences in document order', () => {
+    const result = getOpenableUrls({
+      allUrls: sampleItems,
+      visibleUrls: sampleItems,
+      scope: 'all',
+      duplicateMode: 'total',
+    })
+    expect(result).toEqual([
+      'https://example.com/1',
+      'https://example.com/2',
+      'https://example.com/1',
+      'https://example.com/3',
+    ])
+  })
 
   it('respects scope: current results vs all valid URLs', () => {
     const filteredVisible = [sampleItems[0], sampleItems[1]] // only /1 and /2

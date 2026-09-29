@@ -1,3 +1,5 @@
+import type { UrlItem } from './urls'
+
 export type ShortenStatus = 'waiting' | 'shortening' | 'done' | 'failed'
 
 export type ShortenEntry = {
@@ -115,4 +117,30 @@ export async function shortenBatch(
   }
 
   await Promise.all(Array.from({ length: Math.min(concurrency, total) }, () => worker()))
+}
+
+/**
+ * Extracts successfully shortened URLs according to occurrence mode ('total' | 'unique').
+ * In 'total' mode, preserves document-order occurrences of all valid URLs.
+ * In 'unique' mode, includes only distinct valid URLs.
+ * Always skips invalid URLs.
+ */
+export function getDoneShortenedUrls(
+  urls: Pick<UrlItem, 'normalized' | 'valid'>[],
+  shortened: Record<string, ShortenEntry>,
+  mode: 'total' | 'unique' = 'total',
+): string[] {
+  const validItems = urls.filter((u) => u.valid && shortened[u.normalized]?.status === 'done')
+  if (mode === 'total') {
+    return validItems.map((u) => shortened[u.normalized]?.shortUrl ?? u.normalized)
+  }
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const u of validItems) {
+    if (!seen.has(u.normalized)) {
+      seen.add(u.normalized)
+      result.push(shortened[u.normalized]?.shortUrl ?? u.normalized)
+    }
+  }
+  return result
 }

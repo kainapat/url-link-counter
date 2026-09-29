@@ -1,7 +1,9 @@
 import type { UrlItem } from './urls'
 
+export type OccurrenceMode = 'total' | 'unique'
 export type OpenLinksScope = 'current' | 'all'
-export type OpenLinksDuplicateMode = 'unique' | 'all'
+export type OpenLinksDuplicateMode = OccurrenceMode | 'all'
+export const DEFAULT_OCCURRENCE_MODE: OccurrenceMode = 'total'
 export type BatchPreset = 10 | 20 | 30 | 50
 export type BatchSizeSelection = BatchPreset | 'custom'
 
@@ -42,7 +44,7 @@ export function getOpenableUrls(params: {
   const source = params.scope === 'current' ? params.visibleUrls : params.allUrls
   const validItems = source.filter((item) => item.valid)
 
-  if (params.duplicateMode === 'all') {
+  if (params.duplicateMode === 'all' || params.duplicateMode === 'total') {
     return validItems.map((item) => item.normalized)
   }
 

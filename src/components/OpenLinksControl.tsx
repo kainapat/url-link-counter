@@ -13,6 +13,7 @@ import type { UrlItem } from '../lib/urls'
 import {
   CONFIRM_BATCH_THRESHOLD,
   DEFAULT_BATCH_SIZE,
+  DEFAULT_OCCURRENCE_MODE,
   MAX_CUSTOM_BATCH,
   getBatch,
   getOpenableUrls,
@@ -20,6 +21,7 @@ import {
   parseCustomBatchSize,
   type BatchPreset,
   type BatchSizeSelection,
+  type OccurrenceMode,
   type OpenBatchResult,
   type OpenLinksDuplicateMode,
   type OpenLinksScope,
@@ -31,6 +33,8 @@ export type OpenLinksControlProps = {
   visibleUrls: UrlItem[]
   query: string
   filter: string
+  mode?: OccurrenceMode
+  onModeChange?: (mode: OccurrenceMode) => void
 }
 
 export function OpenLinksControl({
@@ -38,9 +42,16 @@ export function OpenLinksControl({
   visibleUrls,
   query,
   filter,
+  mode,
+  onModeChange,
 }: OpenLinksControlProps) {
   const [scope, setScope] = useState<OpenLinksScope>('current')
-  const [duplicateMode, setDuplicateMode] = useState<OpenLinksDuplicateMode>('unique')
+  const [internalDuplicateMode, setInternalDuplicateMode] = useState<OpenLinksDuplicateMode>(DEFAULT_OCCURRENCE_MODE)
+  const duplicateMode = mode ?? internalDuplicateMode
+  const setDuplicateMode = (newMode: OccurrenceMode) => {
+    setInternalDuplicateMode(newMode)
+    if (onModeChange) onModeChange(newMode)
+  }
   const [batchPreset, setBatchPreset] = useState<BatchSizeSelection>(DEFAULT_BATCH_SIZE)
   const [customInput, setCustomInput] = useState('25')
   const [cursor, setCursor] = useState(0)
@@ -314,7 +325,7 @@ export function OpenLinksControl({
           </span>{' '}
           • Mode:{' '}
           <span className="font-medium text-zinc-700 dark:text-zinc-300">
-            {duplicateMode === 'unique' ? 'Unique URLs' : 'All occurrences'}
+            {duplicateMode === 'unique' ? 'Unique URLs' : 'Total URLs'}
           </span>
         </div>
       </div>
@@ -363,8 +374,19 @@ export function OpenLinksControl({
               {/* Duplicate Handling Radio Group */}
               <fieldset className="flex flex-col gap-1.5">
                 <legend className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                  Duplicate handling
+                  Occurrence mode
                 </legend>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  <input
+                    type="radio"
+                    name="duplicate-mode"
+                    value="total"
+                    checked={duplicateMode === 'total' || duplicateMode === 'all'}
+                    onChange={() => setDuplicateMode('total')}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Total URLs (Open all occurrences in order)</span>
+                </label>
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                   <input
                     type="radio"
@@ -374,18 +396,7 @@ export function OpenLinksControl({
                     onChange={() => setDuplicateMode('unique')}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span>Unique URLs (Recommended to prevent duplicate tabs)</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <input
-                    type="radio"
-                    name="duplicate-mode"
-                    value="all"
-                    checked={duplicateMode === 'all'}
-                    onChange={() => setDuplicateMode('all')}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>All occurrences (Open duplicates)</span>
+                  <span>Unique URLs (Skip duplicate tabs)</span>
                 </label>
               </fieldset>
             </div>

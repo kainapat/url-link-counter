@@ -16,8 +16,9 @@ import {
 } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { countDomains, parseUrls } from './lib/urls'
-import { shortenBatch, shortenOne, type ShortenEntry } from './lib/shorten'
+import { getDoneShortenedUrls, shortenBatch, shortenOne, type ShortenEntry } from './lib/shorten'
 import { OpenLinksControl } from './components/OpenLinksControl'
+import type { OccurrenceMode } from './lib/openLinks'
 
 function StatCard({ label, value, index = 0 }: { label: string; value: number; index?: number }) {
   return (
@@ -80,6 +81,7 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'valid' | 'invalid' | 'duplicate'>('all')
   const [copied, setCopied] = useState<string | null>(null)
+  const [occurrenceMode, setOccurrenceMode] = useState<OccurrenceMode>('total')
   const [copyError, setCopyError] = useState<string | null>(null)
   const [showAllDomains, setShowAllDomains] = useState(false)
   const [shortened, setShortened] = useState<Record<string, ShortenEntry>>({})
@@ -181,9 +183,9 @@ export default function App() {
     return out
   }, [urls])
 
-  const shortenedDone = useMemo(
-    () => uniqueValid.filter((u) => shortened[u]?.status === 'done'),
-    [uniqueValid, shortened],
+  const shortenedDoneList = useMemo(
+    () => getDoneShortenedUrls(urls, shortened, occurrenceMode),
+    [urls, shortened, occurrenceMode],
   )
 
   const shortenSingle = async (longUrl: string) => {
@@ -394,7 +396,37 @@ export default function App() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5" role="group" aria-label="URL occurrence mode">
+                <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Mode:</span>
+                <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setOccurrenceMode('total')}
+                    aria-pressed={occurrenceMode === 'total'}
+                    className={`min-h-9 rounded-md px-3 text-xs font-semibold transition motion-reduce:transition-none ${
+                      occurrenceMode === 'total'
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    Total URLs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOccurrenceMode('unique')}
+                    aria-pressed={occurrenceMode === 'unique'}
+                    className={`min-h-9 rounded-md px-3 text-xs font-semibold transition motion-reduce:transition-none ${
+                      occurrenceMode === 'unique'
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    Unique URLs
+                  </button>
+                </div>
+              </div>
+
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={17} />
                 <label htmlFor="search-results" className="sr-only">Search results</label>
@@ -403,7 +435,7 @@ export default function App() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search URLs or domains"
-                  className="min-h-11 w-full rounded-lg border border-zinc-300 bg-transparent pl-9 pr-3 text-sm sm:w-64 dark:border-zinc-700"
+                  className="min-h-11 w-full rounded-lg border border-zinc-300 bg-transparent pl-9 pr-3 text-sm sm:w-56 dark:border-zinc-700"
                 />
               </div>
 
@@ -463,14 +495,14 @@ export default function App() {
               {shortenActive ? `Shortening ${shortenProgress.done}/${shortenProgress.total}` : 'Shorten all'}
             </button>
 
-            {shortenedDone.length > 0 && (
+            {shortenedDoneList.length > 0 && (
               <button
                 type="button"
-                onClick={() => copyText(shortenedDone.map((u) => shortened[u]?.shortUrl ?? u).join('\n'), 'short-all')}
+                onClick={() => copyText(shortenedDoneList.join('\n'), 'short-all')}
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-medium transition active:scale-[0.98] dark:border-zinc-700"
               >
                 {copied === 'short-all' ? <Check size={17} /> : <Clipboard size={17} />}
-                {copied === 'short-all' ? 'Copied' : `Copy shortened (${shortenedDone.length})`}
+                {copied === 'short-all' ? 'Copied' : `Copy shortened (${shortenedDoneList.length})`}
               </button>
             )}
           </div>
@@ -481,14 +513,16 @@ export default function App() {
                 visibleUrls={visibleUrls}
                 query={query}
                 filter={filter}
+                mode={occurrenceMode}
+                onModeChange={setOccurrenceMode}
               />
             </div>
           )}
           <p aria-live="polite" className="sr-only">
             {shortenActive
               ? `Shortening URLs, ${shortenProgress.done} of ${shortenProgress.total} done.`
-              : shortenedDone.length > 0
-                ? `${shortenedDone.length} shortened URLs ready.`
+              : shortenedDoneList.length > 0
+                ? `${shortenedDoneList.length} shortened URLs ready.`
                 : ''}
           </p>
           {copyError && (

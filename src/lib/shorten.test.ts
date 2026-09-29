@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { shortenBatch, shortenOne } from './shorten'
+import { getDoneShortenedUrls, shortenBatch, shortenOne } from './shorten'
 
 function deferred<T>() {
   let resolve!: (v: T) => void
@@ -148,5 +148,38 @@ describe('shortenBatch', () => {
     await Promise.all([batchPromise, singlePromise])
     expect(batchDone).toBe(true)
     expect(singleDone).toBe(true)
+  })
+})
+
+describe('getDoneShortenedUrls', () => {
+  const items = [
+    { normalized: 'https://example.com/a', valid: true },
+    { normalized: 'https://example.com/b', valid: true },
+    { normalized: 'https://example.com/a', valid: true }, // duplicate
+    { normalized: 'invalid-url', valid: false }, // invalid
+    { normalized: 'https://example.com/c', valid: true },
+  ]
+
+  const shortened = {
+    'https://example.com/a': { status: 'done' as const, shortUrl: 'https://tinyurl.com/a' },
+    'https://example.com/b': { status: 'done' as const, shortUrl: 'https://tinyurl.com/b' },
+    'https://example.com/c': { status: 'failed' as const, error: 'Failed' },
+  }
+
+  it('maps all valid occurrences in total mode while skipping invalid and failed', () => {
+    const result = getDoneShortenedUrls(items, shortened, 'total')
+    expect(result).toEqual([
+      'https://tinyurl.com/a',
+      'https://tinyurl.com/b',
+      'https://tinyurl.com/a', // preserves duplicate mapped
+    ])
+  })
+
+  it('deduplicates in unique mode', () => {
+    const result = getDoneShortenedUrls(items, shortened, 'unique')
+    expect(result).toEqual([
+      'https://tinyurl.com/a',
+      'https://tinyurl.com/b',
+    ])
   })
 })
